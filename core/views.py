@@ -2,8 +2,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from .models import Student, AttendanceRecord
-import face_recognition
 import numpy as np
+from . import face_utils
+import face_recognition
 
 # ----------------------------
 # Register Student View
@@ -38,17 +39,22 @@ def register_student(request):
         image = face_recognition.load_image_file(image_file)
         print("✅ Image shape:", image.shape)
 
-        encodings = face_recognition.face_encodings(image, num_jitters=2, model='cnn')
-        if not encodings:
+        models_to_try = ['cnn', 'hog', 'facenet']
+        face_encoding = None
+        successful_model = None
+
+        for model in models_to_try:
+            print(f"Trying model: {model}")
+            encoding = face_utils.get_encoding(image, model)
+            if encoding is not None:
+                face_encoding = encoding.tobytes()
+                successful_model = model
+                print(f"✅ Face found using {model} model.")
+                break
+        
+        if face_encoding is None:
             print("❌ No face encodings detected. The image might not contain a recognizable face.")
             return JsonResponse({'status': 'fail', 'message': 'No face found in the image.'}, status=400)
-
-        print("🔍 Face encoding success. Length of encodings:", len(encodings))
-
-        if len(encodings) > 1:
-            print("⚠️ Multiple faces detected. Using first one.")
-
-        face_encoding = encodings[0].tobytes()
 
         if Student.objects.filter(matric_number=matric_number).exists():
             return JsonResponse({'status': 'fail', 'message': 'Student already exists.'}, status=409)
@@ -56,10 +62,11 @@ def register_student(request):
         Student.objects.create(
             name=name,
             matric_number=matric_number,
-            face_encoding=face_encoding
+            face_encoding=face_encoding,
+            face_encoding_model=successful_model
         )
 
-        return JsonResponse({'status': 'success', 'message': f'Student {name} registered successfully.'})
+        return JsonResponse({'status': 'success', 'message': f'Student {name} registered successfully using {successful_model} model.'})
 
     except Exception as e:
         print("❌ Error during registration:", str(e))
@@ -77,18 +84,25 @@ def take_attendance(request):
 
         try:
             unknown_image = face_recognition.load_image_file(image_file)
-            unknown_encoding = face_recognition.face_encodings(unknown_image, model='cnn')
-            if not unknown_encoding:
-                return JsonResponse({'status': 'fail', 'message': 'No face found.'}, status=404)
-
-            unknown_encoding = unknown_encoding[0]
+            
             students = Student.objects.all()
             for student in students:
+                model_name = student.face_encoding_model
+                print(f"Attempting to recognize {student.name} using model {model_name}")
+                
+                unknown_encoding = face_utils.get_encoding(unknown_image, model_name)
+
+                if unknown_encoding is None:
+                    print(f"No face found in image for student {student.name} using model {model_name}.")
+                    continue
+
                 known_encoding = np.frombuffer(student.face_encoding, dtype=np.float64)
-                matches = face_recognition.compare_faces([known_encoding], unknown_encoding)
-                if matches[0]:
-                    AttendanceRecord.objects.create(student=student, timestamp=timezone.now())
-                    return JsonResponse({'status': 'success', 'message': f'Attendance recorded for {student.name}.'})
+                
+                is_match = face_utils.compare_faces(known_encoding, unknown_encoding, model_name)
+
+                if is_match:
+                    AttendanceRecord.objects.create(student=student, timestamp=timezone.now(), recognition_model=model_name)
+                    return JsonResponse({'status': 'success', 'message': f'Attendance recorded for {student.name} using {model_name} model.'})
             return JsonResponse({'status': 'fail', 'message': 'Face not recognized.'}, status=404)
         except Exception as e:
             return JsonResponse({'status': 'fail', 'message': str(e)}, status=500)
