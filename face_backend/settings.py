@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,9 +30,72 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['192.168.1.111', 'localhost', '127.0.0.1']
 
+VERSION = "1.2.3"
 
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
+# Email backend (will be overridden by SystemSettings)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+}
+
+# Logging configuration for security events
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'security_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/security.log',
+            'maxBytes': 1024*1024*5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'security': {
+            'handlers': ['security_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Application definition
 
@@ -45,6 +109,8 @@ INSTALLED_APPS = [
     'core', 
     'django_cryptography',
     'rest_framework',
+    'rest_framework_simplejwt',  # Add this if not present
+    'rest_framework_simplejwt.token_blacklist',  # Add this for token blacklisting
     'corsheaders',  # Optional but highly recommended
 
 ]
@@ -58,8 +124,27 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.ActivityLoggingMiddleware',
      
 ]
+
+# Security settings
+SECURITY_SETTINGS = {
+    'MAX_LOGIN_ATTEMPTS': 5,
+    'LOCKOUT_DURATION': 30,  # minutes
+    'SESSION_TIMEOUT': 60,   # minutes
+    'TRACK_USER_ACTIVITIES': True,
+    'ALERT_ON_SUSPICIOUS_ACTIVITY': True,
+}
+
+# Session settings for security
+SESSION_COOKIE_AGE = 3600  # 1 hour
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+# JWT Settings (update existing)
+from datetime import timedelta
+
 # Allow React frontend to access your Django backend
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
