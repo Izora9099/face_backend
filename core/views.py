@@ -5,8 +5,12 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from django.contrib.auth.hashers import make_password
-from .models import Student, AttendanceRecord, AdminUser
+from django.contrib.auth.hashers import make_password, check_password
+from .models import (
+    Student, AttendanceRecord, Attendance, AdminUser, 
+    UserActivity, LoginAttempt, ActiveSession, SecuritySettings,
+    SystemSettings, SystemBackup
+)
 import numpy as np
 import face_recognition
 import json
@@ -29,12 +33,11 @@ from django.http import HttpResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import AdminUser  # Import your custom AdminUser model
+from django.contrib.auth import get_user_model
 
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 from datetime import timedelta
-from .models import UserActivity, LoginAttempt, ActiveSession, SecuritySettings
 import csv
 from django.core.mail import send_mail, get_connection, EmailMessage
 from django.conf import settings
@@ -54,6 +57,9 @@ import tempfile
 import time
 from datetime import datetime, timedelta
 
+# Get the User model
+User = get_user_model()
+
 
 @csrf_exempt
 def register_student(request):
@@ -70,22 +76,22 @@ def register_student(request):
 
     try:
         # Load and validate image using face_utils
-        image = face_utils.preprocess_image(image_file)  # ✅ Proper reference
+        image = face_utils.preprocess_image(image_file)
         if image is None:
             return JsonResponse({'status': 'fail', 'message': 'Failed to load image.'}, status=400)
         
         # Validate image quality using face_utils
-        is_valid, message = face_utils.validate_image_quality(image)  # ✅ Proper reference
+        is_valid, message = face_utils.validate_image_quality(image)
         if not is_valid:
             return JsonResponse({'status': 'fail', 'message': f'Image quality issue: {message}'}, status=400)
 
         # Get encoding using MTCNN + FaceNet (default)
-        encoding, used_model = face_utils.get_encoding(image, model_name='facenet')  # ✅ Proper reference
+        encoding, used_model = face_utils.get_encoding(image, model_name='facenet')
         
         if encoding is None:
             # Fallback to MTCNN + dlib if FaceNet fails
             print("🔄 FaceNet failed, trying dlib...")
-            encoding, used_model = face_utils.get_encoding(image, model_name='dlib')  # ✅ Proper reference
+            encoding, used_model = face_utils.get_encoding(image, model_name='dlib')
             
         if encoding is None:
             return JsonResponse({'status': 'fail', 'message': 'Failed to detect or encode face. Please ensure face is clearly visible.'}, status=400)
@@ -98,6 +104,7 @@ def register_student(request):
         Student.objects.create(
             name=name,
             matric_number=matric_number,
+            student_id=matric_number,  # Set student_id to matric_number for compatibility
             face_encoding=encoding.tobytes(),
             face_encoding_model=used_model
         )
@@ -125,21 +132,21 @@ def take_attendance(request):
 
     try:
         # Load and validate image using face_utils
-        image = face_utils.preprocess_image(image_file)  # ✅ Proper reference
+        image = face_utils.preprocess_image(image_file)
         if image is None:
             return JsonResponse({'status': 'fail', 'message': 'Failed to load image.'}, status=400)
         
         # Validate image quality using face_utils
-        is_valid, message = face_utils.validate_image_quality(image)  # ✅ Proper reference
+        is_valid, message = face_utils.validate_image_quality(image)
         if not is_valid:
             return JsonResponse({'status': 'fail', 'message': f'Image quality issue: {message}'}, status=400)
 
         # Try FaceNet first, then dlib
-        unknown_encoding, used_model = face_utils.get_encoding(image, model_name='facenet')  # ✅ Proper reference
+        unknown_encoding, used_model = face_utils.get_encoding(image, model_name='facenet')
         
         if unknown_encoding is None:
             print("🔄 FaceNet failed, trying dlib...")
-            unknown_encoding, used_model = face_utils.get_encoding(image, model_name='dlib')  # ✅ Proper reference
+            unknown_encoding, used_model = face_utils.get_encoding(image, model_name='dlib')
 
         if unknown_encoding is None:
             return JsonResponse({'status': 'fail', 'message': 'Failed to detect or encode face. Please ensure face is clearly visible.'}, status=400)
@@ -153,7 +160,7 @@ def take_attendance(request):
                 known_encoding = np.frombuffer(student.face_encoding, dtype=np.float64)
                 
                 # Use appropriate comparison based on encoding models using face_utils
-                is_match = face_utils.compare_faces(known_encoding, unknown_encoding, student.face_encoding_model)  # ✅ Proper reference
+                is_match = face_utils.compare_faces(known_encoding, unknown_encoding, student.face_encoding_model)
                 
                 if is_match:
                     best_match = student
@@ -196,7 +203,12 @@ def post_student_data(request):
         if Student.objects.filter(matric_number=matric_number).exists():
             return JsonResponse({'status': 'fail', 'message': 'Student already exists.'}, status=400)
 
-        Student.objects.create(name=name, matric_number=matric_number, face_encoding=b'')
+        Student.objects.create(
+            name=name, 
+            matric_number=matric_number, 
+            student_id=matric_number,  # Set student_id for compatibility
+            face_encoding=b''
+        )
         return JsonResponse({'status': 'success', 'message': 'Student info saved. Awaiting face scan.'})
 
 
@@ -278,6 +290,9 @@ def update_student(request, id):
 
         student.name = data.get('name', student.name)
         student.matric_number = data.get('matric_number', student.matric_number)
+        student.student_id = data.get('student_id', student.student_id) or student.matric_number
+        student.email = data.get('email', student.email)
+        student.student_class = data.get('student_class', student.student_class)
         student.face_encoding_model = data.get('face_encoding_model', student.face_encoding_model)
         student.save()
 
@@ -381,11 +396,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'first_name': user.first_name,
             'last_name': user.last_name,
             'name': f"{user.first_name} {user.last_name}".strip() or user.username,
-            'phone': getattr(user, 'phone', ''),  # If your AdminUser has phone field
+            'phone': getattr(user, 'phone', ''),
             'is_active': user.is_active,
             'is_staff': getattr(user, 'is_staff', False),
             'is_superuser': getattr(user, 'is_superuser', False),
-            'role': getattr(user, 'role', 'Admin'),  # If your AdminUser has role field
+            'role': getattr(user, 'role', 'Admin'),
         }
         return data
 
@@ -512,6 +527,7 @@ def get_current_user(request):
                 'error': 'Failed to update profile',
                 'message': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_user(request):
@@ -742,20 +758,20 @@ def terminate_session(request, session_id):
 def get_security_settings(request):
     """Get current security settings"""
     try:
-        settings = SecuritySettings.get_settings()
+        security_settings = SecuritySettings.get_settings()
         
         data = {
-            'max_login_attempts': settings.max_login_attempts,
-            'lockout_duration': settings.lockout_duration,
-            'session_timeout': settings.session_timeout,
-            'require_2fa': settings.require_2fa,
-            'password_expiry_days': settings.password_expiry_days,
-            'min_password_length': settings.min_password_length,
-            'allow_multiple_sessions': settings.allow_multiple_sessions,
-            'ip_whitelist_enabled': settings.ip_whitelist_enabled,
-            'audit_log_retention_days': settings.audit_log_retention_days,
-            'track_user_activities': settings.track_user_activities,
-            'alert_on_suspicious_activity': settings.alert_on_suspicious_activity,
+            'max_login_attempts': security_settings.max_login_attempts,
+            'lockout_duration': security_settings.lockout_duration,
+            'session_timeout': security_settings.session_timeout,
+            'require_2fa': security_settings.require_2fa,
+            'password_expiry_days': security_settings.password_expiry_days,
+            'min_password_length': security_settings.min_password_length,
+            'allow_multiple_sessions': security_settings.allow_multiple_sessions,
+            'ip_whitelist_enabled': security_settings.ip_whitelist_enabled,
+            'audit_log_retention_days': security_settings.audit_log_retention_days,
+            'track_user_activities': security_settings.track_user_activities,
+            'alert_on_suspicious_activity': security_settings.alert_on_suspicious_activity,
         }
         
         return Response(data, status=status.HTTP_200_OK)
@@ -771,7 +787,7 @@ def get_security_settings(request):
 def update_security_settings(request):
     """Update security settings"""
     try:
-        settings = SecuritySettings.get_settings()
+        security_settings = SecuritySettings.get_settings()
         
         # Update fields from request data
         for field in ['max_login_attempts', 'lockout_duration', 'session_timeout', 
@@ -780,10 +796,10 @@ def update_security_settings(request):
                      'audit_log_retention_days', 'track_user_activities', 
                      'alert_on_suspicious_activity']:
             if field in request.data:
-                setattr(settings, field, request.data[field])
+                setattr(security_settings, field, request.data[field])
         
-        settings.updated_by = request.user
-        settings.save()
+        security_settings.updated_by = request.user
+        security_settings.save()
         
         # Log the action
         log_user_activity(
@@ -903,56 +919,6 @@ def get_security_statistics(request):
             'error': 'Failed to fetch security statistics',
             'message': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-class SystemSettingsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SystemSettings
-        exclude = ['created_at', 'updated_at', 'updated_by']
-    
-    def validate_smtp_password(self, value):
-        """Don't return the actual password for security"""
-        if value:
-            return '***HIDDEN***'
-        return value
-
-class SystemSettingsUpdateSerializer(serializers.ModelSerializer):
-    """Separate serializer for updates to handle password properly"""
-    class Meta:
-        model = SystemSettings
-        exclude = ['created_at', 'updated_at', 'updated_by']
-    
-    def update(self, instance, validated_data):
-        # Handle password field specially
-        if 'smtp_password' in validated_data:
-            password = validated_data['smtp_password']
-            if password != '***HIDDEN***':  # Only update if not the hidden placeholder
-                instance.smtp_password = password
-            validated_data.pop('smtp_password')
-        
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        
-        instance.save()
-        return instance
-
-class SystemStatsSerializer(serializers.Serializer):
-    total_students = serializers.IntegerField()
-    total_users = serializers.IntegerField()
-    total_attendance_records = serializers.IntegerField()
-    database_size = serializers.CharField()
-    storage_used = serializers.CharField()
-    system_uptime = serializers.CharField()
-    last_backup = serializers.CharField()
-    system_version = serializers.CharField()
-
-class SystemBackupSerializer(serializers.ModelSerializer):
-    file_size_mb = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = SystemBackup
-        fields = ['id', 'filename', 'file_size', 'file_size_mb', 'backup_type', 'created_at', 'created_by']
-    
-    def get_file_size_mb(self, obj):
-        return round(obj.file_size / (1024 * 1024), 2)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1106,8 +1072,12 @@ def create_backup(request):
                     writer.writerow(['ID', 'Student ID', 'Name', 'Email', 'Class', 'Created At'])
                     for student in Student.objects.all():
                         writer.writerow([
-                            student.id, student.student_id, student.name, 
-                            student.email, student.student_class, student.created_at
+                            student.id, 
+                            student.student_id or student.matric_number, 
+                            student.name, 
+                            student.email, 
+                            student.student_class, 
+                            student.created_at
                         ])
                 zipf.write(students_file, 'students.csv')
                 
@@ -1118,9 +1088,14 @@ def create_backup(request):
                     writer.writerow(['ID', 'Student ID', 'Student Name', 'Date', 'Status', 'Check In', 'Check Out', 'Created At'])
                     for attendance in Attendance.objects.select_related('student').all():
                         writer.writerow([
-                            attendance.id, attendance.student.student_id, attendance.student.name,
-                            attendance.date, attendance.status, attendance.check_in_time,
-                            attendance.check_out_time, attendance.created_at
+                            attendance.id, 
+                            attendance.student.student_id or attendance.student.matric_number, 
+                            attendance.student.name,
+                            attendance.date, 
+                            attendance.status, 
+                            attendance.check_in_time,
+                            attendance.check_out_time, 
+                            attendance.created_at
                         ])
                 zipf.write(attendance_file, 'attendance.csv')
                 
@@ -1201,3 +1176,43 @@ def system_health_check(request):
             {'error': f'Failed to check system health: {str(e)}'}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@csrf_exempt
+def system_health_check_public(request):
+    """
+    Public health check endpoint that doesn't require authentication
+    This is specifically for the auto-detection system
+    """
+    if request.method == 'GET':
+        try:
+            # Basic health checks
+            health_status = {
+                'status': 'healthy',
+                'database': 'connected',
+                'storage': 'available',
+                'email': 'not_configured',
+                'face_recognition': 'active',
+                'timestamp': timezone.now().isoformat(),
+                'version': getattr(settings, 'VERSION', '1.0.0')
+            }
+            
+            # Test database connection
+            try:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                health_status['database'] = 'connected'
+            except Exception as e:
+                health_status['database'] = 'error'
+                health_status['status'] = 'unhealthy'
+            
+            return JsonResponse(health_status, status=200)
+            
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e),
+                'timestamp': timezone.now().isoformat()
+            }, status=500)
+    
+    return JsonResponse({'error': 'Method not allowed'}, status=405)

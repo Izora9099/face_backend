@@ -9,7 +9,8 @@ from .views import (
     # Add the new security dashboard views
     get_user_activities, get_login_attempts, get_active_sessions, terminate_session,
     get_security_settings, update_security_settings, export_activity_log,
-    get_security_statistics
+    get_security_statistics,
+    get_system_settings, update_system_settings, get_system_stats, system_health_check, test_email_settings, create_backup, system_health_check_public,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -55,5 +56,9 @@ urlpatterns = [
     path('api/system/health/', system_health_check, name='system_health_check'),
     path('api/system/email/test/', test_email_settings, name='test_email_settings'),
     path('api/system/backup/create/', create_backup, name='create_backup'),
+    
+    # health check endpoints
+    path('system/health/', system_health_check_public, name='public_health_check'),
+    path('health/', system_health_check_public, name='health_check_alias'),
     
 ]

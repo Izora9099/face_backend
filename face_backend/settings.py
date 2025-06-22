@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-syu*5%4c&2oot&)($!z7i(hzo+2@4v@ro&f5e93f0#2^2k!5fj
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.1.111', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['192.168.1.111', 'localhost', '127.0.0.1', '0.0.0.0']
 
 VERSION = "1.2.3"
 
@@ -149,7 +149,11 @@ from datetime import timedelta
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8080",  # React dev server
-    "http://192.168.1.111:3000"  # If you're using LAN IP
+    "http://192.168.1.111:3000",  # If you're using LAN IP
+    "http://localhost:5173",      # Vite dev server  
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://192.168.1.111:3000",
 ]
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_CREDENTIALS = True
