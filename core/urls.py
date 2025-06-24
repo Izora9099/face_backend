@@ -1,64 +1,121 @@
-# Updated core/urls.py
-from django.urls import path
-from .views import (
-    register_student, take_attendance, post_student_data, notify, admin_users_view,
-    get_attendance_records, update_attendance_record, get_students, update_student,
-    get_weekly_attendance_summary,
-    # Add the new authentication views
-    CustomTokenObtainPairView, get_current_user, logout_user,
-    # Add the new security dashboard views
-    get_user_activities, get_login_attempts, get_active_sessions, terminate_session,
-    get_security_settings, update_security_settings, export_activity_log,
-    get_security_statistics,
-    get_system_settings, update_system_settings, get_system_stats, system_health_check, test_email_settings, create_backup, system_health_check_public,
-)
-from rest_framework_simplejwt.views import TokenRefreshView
+# core/urls.py
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from . import views
+
+# Create router for ViewSets
+router = DefaultRouter()
+router.register(r'departments', views.DepartmentViewSet)
+router.register(r'specializations', views.SpecializationViewSet)
+router.register(r'levels', views.LevelViewSet)
+router.register(r'courses', views.CourseViewSet)
+router.register(r'students', views.StudentViewSet)
+router.register(r'attendance', views.AttendanceViewSet)
 
 urlpatterns = [
-    # Student management
-    path('register/', register_student),
-    path('students/', get_students, name='get_students'),
-    path('students/<int:id>/', update_student, name='update_student'),
-    path('post/', post_student_data),
-    
-    # Attendance management
-    path('attendance/', take_attendance),
-    path('attendance-records/', get_attendance_records, name='get_attendance_records'),
-    path('attendance-records/<int:record_id>/', update_attendance_record, name='update_attendance_record'),
-    path('attendance-summary/', get_weekly_attendance_summary),
-    
-    # Admin users
-    path('admin-users/', admin_users_view),
+    # Include ViewSet routes
+    path('', include(router.urls)),
     
     # Authentication endpoints
-    path('auth/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('auth/user/', get_current_user, name='current_user'),
-    path('auth/logout/', logout_user, name='logout'),
+    path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
-    # Security Dashboard endpoints
-    path('security/user-activities/', get_user_activities, name='get_user_activities'),
-    path('security/login-attempts/', get_login_attempts, name='get_login_attempts'),
-    path('security/active-sessions/', get_active_sessions, name='get_active_sessions'),
-    path('security/terminate-session/<str:session_id>/', terminate_session, name='terminate_session'),
-    path('security/settings/', get_security_settings, name='get_security_settings'),
-    path('security/settings/update/', update_security_settings, name='update_security_settings'),
-    path('security/export/activity-log/', export_activity_log, name='export_activity_log'),
-    path('security/statistics/', get_security_statistics, name='get_security_statistics'),
+    # Legacy student and attendance endpoints (backward compatibility)
+    path('register-student/', views.register_student, name='register_student'),
+    path('recognize-face/', views.recognize_face, name='recognize_face'),
+    path('get-students/', views.get_students, name='get_students'),
+    path('get-attendance/', views.get_attendance_records, name='get_attendance_records'),
     
-    # Notifications
-    path('notify/', notify),
+    # Dashboard and Analytics endpoints
+    path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
+    path('analytics/departments/', views.department_stats, name='department_stats'),
+    path('analytics/courses/', views.course_stats, name='course_stats'),
+    path('analytics/teachers/', views.teacher_stats, name='teacher_stats'),
+    
+    # Enrollment management endpoints
+    path('enrollment/student/', views.manage_student_enrollment, name='manage_student_enrollment'),
+    path('enrollment/bulk/', views.bulk_enrollment, name='bulk_enrollment'),
+    
+    # System management endpoints
+    path('system/stats/', views.system_stats, name='system_stats'),
+    
+    # Academic structure quick access endpoints
+    path('quick/departments/', views.DepartmentViewSet.as_view({'get': 'list'}), name='quick_departments'),
+    path('quick/specializations/', views.SpecializationViewSet.as_view({'get': 'list'}), name='quick_specializations'),
+    path('quick/levels/', views.LevelViewSet.as_view({'get': 'list'}), name='quick_levels'),
+    path('quick/courses/', views.CourseViewSet.as_view({'get': 'list'}), name='quick_courses'),
+]
 
-    # System Settings endpoints
-    path('api/system/settings/', get_system_settings, name='get_system_settings'),
-    path('api/system/settings/update/', update_system_settings, name='update_system_settings'),
-    path('api/system/stats/', get_system_stats, name='get_system_stats'),
-    path('api/system/health/', system_health_check, name='system_health_check'),
-    path('api/system/email/test/', test_email_settings, name='test_email_settings'),
-    path('api/system/backup/create/', create_backup, name='create_backup'),
+# Additional URL patterns for specific endpoints
+department_detail = views.DepartmentViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
+specialization_detail = views.SpecializationViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
+level_detail = views.LevelViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
+course_detail = views.CourseViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
+student_detail = views.StudentViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
+attendance_detail = views.AttendanceViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
+# Add the detail URL patterns
+urlpatterns += [
+    # Department detail endpoints
+    path('departments/<int:pk>/', department_detail, name='department-detail'),
+    path('departments/<int:pk>/stats/', views.DepartmentViewSet.as_view({'get': 'stats'}), name='department-stats'),
     
-    # health check endpoints
-    path('system/health/', system_health_check_public, name='public_health_check'),
-    path('health/', system_health_check_public, name='health_check_alias'),
+    # Specialization detail endpoints
+    path('specializations/<int:pk>/', specialization_detail, name='specialization-detail'),
     
+    # Level detail endpoints
+    path('levels/<int:pk>/', level_detail, name='level-detail'),
+    
+    # Course detail endpoints
+    path('courses/<int:pk>/', course_detail, name='course-detail'),
+    path('courses/<int:pk>/students/', views.CourseViewSet.as_view({'get': 'students'}), name='course-students'),
+    path('courses/<int:pk>/attendance/', views.CourseViewSet.as_view({'get': 'attendance'}), name='course-attendance'),
+    path('courses/<int:pk>/enroll-students/', views.CourseViewSet.as_view({'post': 'enroll_students'}), name='course-enroll-students'),
+    
+    # Student detail endpoints
+    path('students/<int:pk>/', student_detail, name='student-detail'),
+    path('students/<int:pk>/courses/', views.StudentViewSet.as_view({'get': 'courses'}), name='student-courses'),
+    path('students/<int:pk>/enroll-courses/', views.StudentViewSet.as_view({'post': 'enroll_courses'}), name='student-enroll-courses'),
+    path('students/<int:pk>/auto-assign-courses/', views.StudentViewSet.as_view({'post': 'auto_assign_courses'}), name='student-auto-assign-courses'),
+    path('students/<int:pk>/attendance-summary/', views.StudentViewSet.as_view({'get': 'attendance_summary'}), name='student-attendance-summary'),
+    
+    # Attendance detail endpoints
+    path('attendance/<int:pk>/', attendance_detail, name='attendance-detail'),
 ]

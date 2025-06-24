@@ -2,7 +2,6 @@
 
 from django.utils import timezone
 from .models import UserActivity, ActiveSession, SecuritySettings
-from .views import get_client_ip, log_user_activity
 
 class ActivityLoggingMiddleware:
     """Middleware to automatically log user activities"""
@@ -29,7 +28,7 @@ class ActivityLoggingMiddleware:
         # Log activities based on the request
         if hasattr(request, 'user') and request.user.is_authenticated:
             settings = SecuritySettings.get_settings()
-            if settings.track_user_activities:
+            if settings.log_all_activities:  # Fixed: changed from track_user_activities
                 self.log_activity_from_request(request, response)
         return response
 
@@ -50,8 +49,8 @@ class ActivityLoggingMiddleware:
                 
                 if not created:
                     session.last_activity = timezone.now()
-                    session.activity_count += 1
-                    session.save(update_fields=['last_activity', 'activity_count'])
+                    # Removed activity_count since it doesn't exist in the model
+                    session.save(update_fields=['last_activity'])
                     
         except Exception as e:
             print(f"Error updating session activity: {e}")
@@ -97,15 +96,15 @@ class ActivityLoggingMiddleware:
                     resource = 'attendance'
                     details = 'Marked student attendance'
                 elif method == 'GET' and 'records' in path:
-                    action = 'VIEW_ATTENDANCE'
+                    action = 'VIEW_STUDENTS'  # Changed to match model choices
                     resource = 'attendance'
                     details = 'Viewed attendance records'
                 elif method == 'PUT':
-                    action = 'UPDATE_ATTENDANCE'
+                    action = 'UPDATE_STUDENT'  # Changed to match model choices
                     resource = 'attendance'
                     details = 'Updated attendance record'
                     
-            elif '/face-recognition' in path:
+            elif '/face-recognition' in path or '/recognize-face' in path:
                 action = 'USE_FACE_RECOGNITION'
                 resource = 'face_recognition'
                 if method == 'POST':
@@ -156,7 +155,7 @@ class ActivityLoggingMiddleware:
                     details=details,
                     request=request,
                     resource_id=resource_id,
-                    status_type='success'
+                    status='success'  # Fixed: changed from status_type
                 )
                 
         except Exception as e:
@@ -166,6 +165,17 @@ class ActivityLoggingMiddleware:
         """Get location from IP address (implement with geolocation service)"""
         # You can implement this with a service like GeoIP2 or ipapi
         # For now, return a placeholder
-        if ip_address.startswith('192.168.') or ip_address.startswith('127.'):
+        if ip_address and (ip_address.startswith('192.168.') or ip_address.startswith('127.')):
             return 'Local Network'
         return 'Unknown Location'
+
+def get_client_ip(request):
+    """Get client IP address from request"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+from .views import log_user_activity

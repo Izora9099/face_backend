@@ -1,1218 +1,1059 @@
 # core/views.py
-from django.shortcuts import render
-from django.http import JsonResponse
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse, HttpResponse, FileResponse
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.sessions.models import Session
+from django.core.mail import send_mail, get_connection, EmailMessage
+from django.conf import settings
+from django.db import connection, transaction
+from django.db.models import Count, Avg, Q, Sum
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+
 from .models import (
     Student, AttendanceRecord, Attendance, AdminUser, 
     UserActivity, LoginAttempt, ActiveSession, SecuritySettings,
-    SystemSettings, SystemBackup
+    SystemSettings, SystemBackup, Department, Specialization, 
+    Level, Course
 )
+from .serializers import (
+    SystemSettingsSerializer, SystemSettingsUpdateSerializer, 
+    SystemStatsSerializer, SystemBackupSerializer,
+    StudentSerializer, StudentListSerializer, StudentCreateSerializer,
+    AttendanceSerializer, AttendanceRecordSerializer, AttendanceListSerializer,
+    AttendanceCreateSerializer, AdminUserSerializer,
+    DepartmentSerializer, SpecializationSerializer, LevelSerializer,
+    CourseSerializer, CourseListSerializer, UserActivitySerializer,
+    LoginAttemptSerializer, ActiveSessionSerializer, SecuritySettingsSerializer,
+    DepartmentStatsSerializer, CourseStatsSerializer, TeacherStatsSerializer,
+    StudentEnrollmentSerializer, BulkEnrollmentSerializer
+)
+
 import numpy as np
 import face_recognition
 import json
 import datetime
-from . import face_utils  # Import the face_utils module
 from datetime import timedelta
-from .serializers import (
-    SystemSettingsSerializer,
-    SystemSettingsUpdateSerializer, 
-    SystemStatsSerializer,
-    SystemBackupSerializer,
-    StudentSerializer,
-    AttendanceSerializer
-)
+from . import face_utils
+import csv
+import psutil
+import os
+import zipfile
+import tempfile
+import time
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from rest_framework import status
-from django.http import HttpResponse
+from rest_framework import status, viewsets
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 
-from django.contrib.sessions.models import Session
-from django.utils import timezone
-from datetime import timedelta
-import csv
-from django.core.mail import send_mail, get_connection, EmailMessage
-from django.conf import settings
-from django.db import connection
-from django.http import FileResponse, HttpResponse
-from django.utils import timezone
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-import psutil
-import os
-import csv
-import json
-import zipfile
-import tempfile
-import time
-from datetime import datetime, timedelta
-
 # Get the User model
 User = get_user_model()
 
+# --------------------------
+# Permission Helpers
+# --------------------------
+def check_role_permission(user, required_roles):
+    """Check if user has required role"""
+    if not user or not hasattr(user, 'role'):
+        return False
+    return user.role in required_roles
 
+def check_teacher_course_access(user, course):
+    """Check if teacher has access to specific course"""
+    if user.role == 'teacher':
+        return course in user.taught_courses.all()
+    return user.role in ['superadmin', 'staff']
+
+def log_user_activity(user, action, resource, details, request, status='success'):
+    """Log user activity"""
+    UserActivity.objects.create(
+        user=user,
+        action=action,
+        resource=resource,
+        details=details,
+        ip_address=request.META.get('REMOTE_ADDR', ''),
+        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        session_id=request.session.session_key or '',
+        status=status
+    )
+
+# --------------------------
+# Academic Structure ViewSets
+# --------------------------
+class DepartmentViewSet(ModelViewSet):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Department.objects.all()
+        if self.request.query_params.get('active_only') == 'true':
+            queryset = queryset.filter(is_active=True)
+        return queryset.order_by('department_name')
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MANAGE_DEPARTMENTS', 'departments',
+            f"Created department: {serializer.instance.department_name}",
+            self.request
+        )
+    
+    def perform_update(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MANAGE_DEPARTMENTS', 'departments',
+            f"Updated department: {serializer.instance.department_name}",
+            self.request
+        )
+    
+    def perform_destroy(self, instance):
+        log_user_activity(
+            self.request.user, 'MANAGE_DEPARTMENTS', 'departments',
+            f"Deleted department: {instance.department_name}",
+            self.request
+        )
+        instance.delete()
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get department statistics"""
+        department = self.get_object()
+        stats = {
+            'total_specializations': department.specializations.count(),
+            'total_courses': department.courses.count(),
+            'total_students': department.students.count(),
+            'average_attendance_rate': department.students.aggregate(
+                avg_rate=Avg('attendance_rate')
+            )['avg_rate'] or 0,
+            'active_courses': department.courses.filter(status='active').count(),
+        }
+        return Response(stats)
+
+class SpecializationViewSet(ModelViewSet):
+    queryset = Specialization.objects.select_related('department').all()
+    serializer_class = SpecializationSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Specialization.objects.select_related('department').all()
+        department_id = self.request.query_params.get('department')
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+        if self.request.query_params.get('active_only') == 'true':
+            queryset = queryset.filter(is_active=True)
+        return queryset.order_by('specialization_name')
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MANAGE_SPECIALIZATIONS', 'specializations',
+            f"Created specialization: {serializer.instance.specialization_name}",
+            self.request
+        )
+    
+    def perform_update(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MANAGE_SPECIALIZATIONS', 'specializations',
+            f"Updated specialization: {serializer.instance.specialization_name}",
+            self.request
+        )
+
+class LevelViewSet(ModelViewSet):
+    queryset = Level.objects.prefetch_related('departments', 'specializations').all()
+    serializer_class = LevelSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Level.objects.prefetch_related('departments', 'specializations').all()
+        if self.request.query_params.get('active_only') == 'true':
+            queryset = queryset.filter(is_active=True)
+        return queryset.order_by('level_name')
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MANAGE_LEVELS', 'levels',
+            f"Created level: {serializer.instance.level_name}",
+            self.request
+        )
+
+class CourseViewSet(ModelViewSet):
+    queryset = Course.objects.select_related(
+        'department', 'level'
+    ).prefetch_related('specializations', 'teachers', 'enrolled_students').all()
+    serializer_class = CourseSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Course.objects.select_related(
+            'department', 'level'
+        ).prefetch_related('specializations', 'teachers', 'enrolled_students').all()
+        
+        # Filter by teacher access
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == 'teacher':
+            queryset = queryset.filter(teachers=user)
+        
+        # Additional filters
+        department_id = self.request.query_params.get('department')
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+        
+        specialization_id = self.request.query_params.get('specialization')
+        if specialization_id:
+            queryset = queryset.filter(specializations=specialization_id)
+        
+        level_id = self.request.query_params.get('level')
+        if level_id:
+            queryset = queryset.filter(level_id=level_id)
+        
+        if self.request.query_params.get('active_only') == 'true':
+            queryset = queryset.filter(status='active')
+        
+        return queryset.order_by('course_code')
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CourseListSerializer
+        return CourseSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MANAGE_COURSES', 'courses',
+            f"Created course: {serializer.instance.course_code}",
+            self.request
+        )
+    
+    @action(detail=True, methods=['get'])
+    def students(self, request, pk=None):
+        """Get students enrolled in this course"""
+        course = self.get_object()
+        
+        # Check teacher access
+        if not check_teacher_course_access(request.user, course):
+            return Response(
+                {'error': 'You do not have access to this course'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        students = course.enrolled_students.all()
+        serializer = StudentListSerializer(students, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def attendance(self, request, pk=None):
+        """Get attendance records for this course"""
+        course = self.get_object()
+        
+        # Check teacher access
+        if not check_teacher_course_access(request.user, course):
+            return Response(
+                {'error': 'You do not have access to this course'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        attendance_records = course.attendance_records.select_related('student').all()
+        
+        # Filter by date range if provided
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        if start_date:
+            attendance_records = attendance_records.filter(attendance_date__gte=start_date)
+        if end_date:
+            attendance_records = attendance_records.filter(attendance_date__lte=end_date)
+        
+        serializer = AttendanceListSerializer(attendance_records, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def enroll_students(self, request, pk=None):
+        """Enroll students in this course"""
+        course = self.get_object()
+        student_ids = request.data.get('student_ids', [])
+        
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response(
+                {'error': 'Permission denied'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        students = Student.objects.filter(id__in=student_ids)
+        course.enrolled_students.add(*students)
+        
+        log_user_activity(
+            request.user, 'MANAGE_COURSES', 'courses',
+            f"Enrolled {len(students)} students in course: {course.course_code}",
+            request
+        )
+        
+        return Response({'message': f'Enrolled {len(students)} students successfully'})
+
+# --------------------------
+# Updated Student ViewSet
+# --------------------------
+class StudentViewSet(ModelViewSet):
+    queryset = Student.objects.select_related(
+        'department', 'specialization', 'level'
+    ).prefetch_related('enrolled_courses').all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = Student.objects.select_related(
+            'department', 'specialization', 'level'
+        ).prefetch_related('enrolled_courses').all()
+        
+        # Filter by department, specialization, level
+        department_id = self.request.query_params.get('department')
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
+        
+        specialization_id = self.request.query_params.get('specialization')
+        if specialization_id:
+            queryset = queryset.filter(specialization_id=specialization_id)
+        
+        level_id = self.request.query_params.get('level')
+        if level_id:
+            queryset = queryset.filter(level_id=level_id)
+        
+        if self.request.query_params.get('active_only') == 'true':
+            queryset = queryset.filter(status='active')
+        
+        return queryset.order_by('first_name', 'last_name')
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return StudentCreateSerializer
+        elif self.action == 'list':
+            return StudentListSerializer
+        return StudentSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'CREATE_STUDENT', 'students',
+            f"Created student: {serializer.instance.full_name}",
+            self.request
+        )
+    
+    def perform_update(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'UPDATE_STUDENT', 'students',
+            f"Updated student: {serializer.instance.full_name}",
+            self.request
+        )
+    
+    @action(detail=True, methods=['get'])
+    def courses(self, request, pk=None):
+        """Get courses for this student"""
+        student = self.get_object()
+        courses = student.enrolled_courses.all()
+        serializer = CourseListSerializer(courses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def enroll_courses(self, request, pk=None):
+        """Manually enroll student in courses"""
+        student = self.get_object()
+        course_ids = request.data.get('course_ids', [])
+        
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response(
+                {'error': 'Permission denied'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        courses = Course.objects.filter(id__in=course_ids, status='active')
+        student.enrolled_courses.set(courses)
+        
+        log_user_activity(
+            request.user, 'UPDATE_STUDENT', 'students',
+            f"Updated course enrollment for: {student.full_name}",
+            request
+        )
+        
+        return Response({'message': f'Updated course enrollment successfully'})
+    
+    @action(detail=True, methods=['post'])
+    def auto_assign_courses(self, request, pk=None):
+        """Auto-assign courses based on student's academic structure"""
+        student = self.get_object()
+        student.auto_assign_courses()
+        
+        log_user_activity(
+            request.user, 'UPDATE_STUDENT', 'students',
+            f"Auto-assigned courses for: {student.full_name}",
+            request
+        )
+        
+        return Response({'message': 'Courses auto-assigned successfully'})
+    
+    @action(detail=True, methods=['get'])
+    def attendance_summary(self, request, pk=None):
+        """Get attendance summary for this student"""
+        student = self.get_object()
+        
+        # Get attendance records with course info
+        attendance_records = student.attendance_records.select_related('course').all()
+        
+        # Calculate summary statistics
+        total_records = attendance_records.count()
+        present_count = attendance_records.filter(status='present').count()
+        late_count = attendance_records.filter(status='late').count()
+        absent_count = attendance_records.filter(status='absent').count()
+        
+        # Per course statistics
+        course_stats = []
+        for course in student.enrolled_courses.all():
+            course_records = attendance_records.filter(course=course)
+            course_total = course_records.count()
+            course_present = course_records.filter(status='present').count()
+            
+            course_stats.append({
+                'course_code': course.course_code,
+                'course_name': course.course_name,
+                'total_records': course_total,
+                'present_count': course_present,
+                'attendance_rate': (course_present / course_total * 100) if course_total > 0 else 0
+            })
+        
+        summary = {
+            'total_records': total_records,
+            'present_count': present_count,
+            'late_count': late_count,
+            'absent_count': absent_count,
+            'overall_attendance_rate': student.attendance_rate,
+            'course_statistics': course_stats
+        }
+        
+        return Response(summary)
+
+# --------------------------
+# Updated Attendance ViewSet
+# --------------------------
+class AttendanceViewSet(ModelViewSet):
+    queryset = AttendanceRecord.objects.select_related('student', 'course').all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = AttendanceRecord.objects.select_related('student', 'course').all()
+        
+        # Filter by teacher access
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == 'teacher':
+            queryset = queryset.filter(course__teachers=user)
+        
+        # Additional filters
+        course_id = self.request.query_params.get('course')
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+        
+        student_id = self.request.query_params.get('student')
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+        
+        date_from = self.request.query_params.get('date_from')
+        if date_from:
+            queryset = queryset.filter(attendance_date__gte=date_from)
+        
+        date_to = self.request.query_params.get('date_to')
+        if date_to:
+            queryset = queryset.filter(attendance_date__lte=date_to)
+        
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.order_by('-check_in_time')
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return AttendanceCreateSerializer
+        elif self.action == 'list':
+            return AttendanceListSerializer
+        return AttendanceRecordSerializer
+    
+    def perform_create(self, serializer):
+        serializer.save()
+        log_user_activity(
+            self.request.user, 'MARK_ATTENDANCE', 'attendance',
+            f"Marked attendance for: {serializer.instance.student.full_name}",
+            self.request
+        )
+
+# --------------------------
+# Legacy Function-Based Views (Updated)
+# --------------------------
 @csrf_exempt
 def register_student(request):
-    """Updated student registration with MTCNN detection"""
+    """Updated student registration with new academic structure"""
     if request.method != 'POST':
         return JsonResponse({'status': 'fail', 'message': 'Only POST requests allowed.'}, status=405)
 
-    name = request.POST.get('name')
-    matric_number = request.POST.get('matric_number')
-    image_file = request.FILES.get('image')
-
-    if not name or not matric_number or not image_file:
-        return JsonResponse({'status': 'fail', 'message': 'Missing name, Matriculation Number, or Image.'}, status=400)
-
     try:
-        # Load and validate image using face_utils
+        # Get form data
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        matric_number = request.POST.get('matric_number')
+        email = request.POST.get('email')
+        phone = request.POST.get('phone', '')
+        address = request.POST.get('address', '')
+        department_id = request.POST.get('department_id')
+        specialization_id = request.POST.get('specialization_id')
+        level_id = request.POST.get('level_id')
+        image_file = request.FILES.get('image')
+
+        if not all([first_name, last_name, matric_number, email, department_id, specialization_id, level_id, image_file]):
+            return JsonResponse({
+                'status': 'fail', 
+                'message': 'Missing required fields: first_name, last_name, matric_number, email, department_id, specialization_id, level_id, or image.'
+            }, status=400)
+
+        # Validate academic structure
+        try:
+            department = Department.objects.get(id=department_id, is_active=True)
+            specialization = Specialization.objects.get(id=specialization_id, department=department, is_active=True)
+            level = Level.objects.get(id=level_id, departments=department, is_active=True)
+        except (Department.DoesNotExist, Specialization.DoesNotExist, Level.DoesNotExist):
+            return JsonResponse({
+                'status': 'fail', 
+                'message': 'Invalid academic structure selection.'
+            }, status=400)
+
+        # Check for existing student
+        if Student.objects.filter(Q(matric_number=matric_number) | Q(email=email)).exists():
+            return JsonResponse({
+                'status': 'fail', 
+                'message': 'Student with this matriculation number or email already exists.'
+            }, status=400)
+
+        # Process face image
         image = face_utils.preprocess_image(image_file)
         if image is None:
             return JsonResponse({'status': 'fail', 'message': 'Failed to load image.'}, status=400)
-        
-        # Validate image quality using face_utils
-        is_valid, message = face_utils.validate_image_quality(image)
-        if not is_valid:
-            return JsonResponse({'status': 'fail', 'message': f'Image quality issue: {message}'}, status=400)
 
-        # Get encoding using MTCNN + FaceNet (default)
-        encoding, used_model = face_utils.get_encoding(image, model_name='facenet')
-        
-        if encoding is None:
-            # Fallback to MTCNN + dlib if FaceNet fails
-            print("🔄 FaceNet failed, trying dlib...")
-            encoding, used_model = face_utils.get_encoding(image, model_name='dlib')
+        # Extract face encoding
+        face_encodings = face_recognition.face_encodings(image)
+        if not face_encodings:
+            return JsonResponse({'status': 'fail', 'message': 'No face detected in image.'}, status=400)
+
+        face_encoding = face_encodings[0]
+
+        # Create student
+        with transaction.atomic():
+            student = Student.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                matric_number=matric_number,
+                email=email,
+                phone=phone,
+                address=address,
+                department=department,
+                specialization=specialization,
+                level=level,
+                face_encoding=face_encoding.tobytes(),
+                face_encoding_model='cnn'
+            )
             
-        if encoding is None:
-            return JsonResponse({'status': 'fail', 'message': 'Failed to detect or encode face. Please ensure face is clearly visible.'}, status=400)
+            # Auto-assign courses
+            student.auto_assign_courses()
 
-        # Check for existing student
-        if Student.objects.filter(matric_number=matric_number).exists():
-            return JsonResponse({'status': 'fail', 'message': 'A Student with that matriculation number already exists.'}, status=409)
-
-        # Create student record
-        Student.objects.create(
-            name=name,
-            matric_number=matric_number,
-            student_id=matric_number,  # Set student_id to matric_number for compatibility
-            face_encoding=encoding.tobytes(),
-            face_encoding_model=used_model
-        )
+        # Log activity
+        if request.user.is_authenticated:
+            log_user_activity(
+                request.user, 'CREATE_STUDENT', 'students',
+                f"Registered new student: {student.full_name}",
+                request
+            )
 
         return JsonResponse({
-            'status': 'success', 
-            'message': f'Student {name} registered successfully using {used_model}.',
-            'model_used': used_model
+            'status': 'success',
+            'message': 'Student registered successfully!',
+            'student_id': student.id,
+            'enrolled_courses': student.enrolled_courses.count()
         })
 
     except Exception as e:
-        print(f"❌ Registration error: {str(e)}")
-        return JsonResponse({'status': 'fail', 'message': f'Server error: {str(e)}'}, status=500)
-
+        return JsonResponse({
+            'status': 'fail',
+            'message': f'Registration failed: {str(e)}'
+        }, status=500)
 
 @csrf_exempt
-def take_attendance(request):
-    """Updated attendance taking with MTCNN detection"""
+def recognize_face(request):
+    """Updated face recognition with course selection"""
     if request.method != 'POST':
         return JsonResponse({'status': 'fail', 'message': 'Only POST requests allowed.'}, status=405)
-        
-    image_file = request.FILES.get('image')
-    if not image_file:
-        return JsonResponse({'status': 'fail', 'message': 'No image provided.'}, status=400)
 
     try:
-        # Load and validate image using face_utils
+        image_file = request.FILES.get('image')
+        course_id = request.POST.get('course_id')
+        
+        if not image_file:
+            return JsonResponse({'status': 'fail', 'message': 'No image provided.'}, status=400)
+        
+        if not course_id:
+            return JsonResponse({'status': 'fail', 'message': 'Course ID is required.'}, status=400)
+
+        # Validate course
+        try:
+            course = Course.objects.get(id=course_id, status='active')
+        except Course.DoesNotExist:
+            return JsonResponse({'status': 'fail', 'message': 'Invalid course.'}, status=400)
+
+        # Check teacher access
+        if request.user.is_authenticated and hasattr(request.user, 'role'):
+            if not check_teacher_course_access(request.user, course):
+                return JsonResponse({'status': 'fail', 'message': 'Access denied to this course.'}, status=403)
+
+        # Process image
         image = face_utils.preprocess_image(image_file)
         if image is None:
-            return JsonResponse({'status': 'fail', 'message': 'Failed to load image.'}, status=400)
+            return JsonResponse({'status': 'fail', 'message': 'Failed to process image.'}, status=400)
+
+        # Extract face encoding
+        face_encodings = face_recognition.face_encodings(image)
+        if not face_encodings:
+            return JsonResponse({'status': 'fail', 'message': 'No face detected.'}, status=400)
+
+        unknown_encoding = face_encodings[0]
+
+        # Get enrolled students for this course
+        enrolled_students = course.enrolled_students.filter(status='active')
         
-        # Validate image quality using face_utils
-        is_valid, message = face_utils.validate_image_quality(image)
-        if not is_valid:
-            return JsonResponse({'status': 'fail', 'message': f'Image quality issue: {message}'}, status=400)
+        if not enrolled_students.exists():
+            return JsonResponse({'status': 'fail', 'message': 'No students enrolled in this course.'}, status=400)
 
-        # Try FaceNet first, then dlib
-        unknown_encoding, used_model = face_utils.get_encoding(image, model_name='facenet')
-        
-        if unknown_encoding is None:
-            print("🔄 FaceNet failed, trying dlib...")
-            unknown_encoding, used_model = face_utils.get_encoding(image, model_name='dlib')
-
-        if unknown_encoding is None:
-            return JsonResponse({'status': 'fail', 'message': 'Failed to detect or encode face. Please ensure face is clearly visible.'}, status=400)
-
-        # Compare against all registered students
-        students = Student.objects.all()
+        # Compare with enrolled students
         best_match = None
-        
-        for student in students:
+        best_distance = float('inf')
+        tolerance = 0.6
+
+        for student in enrolled_students:
             try:
-                known_encoding = np.frombuffer(student.face_encoding, dtype=np.float64)
+                stored_encoding = np.frombuffer(student.face_encoding, dtype=np.float64)
+                distance = face_recognition.face_distance([stored_encoding], unknown_encoding)[0]
                 
-                # Use appropriate comparison based on encoding models using face_utils
-                is_match = face_utils.compare_faces(known_encoding, unknown_encoding, student.face_encoding_model)
-                
-                if is_match:
+                if distance < tolerance and distance < best_distance:
+                    best_distance = distance
                     best_match = student
-                    break
-                    
             except Exception as e:
-                print(f"❌ Error comparing with student {student.name}: {str(e)}")
                 continue
 
         if best_match:
-            # Record attendance
-            AttendanceRecord.objects.create(
+            # Check if already marked present today
+            today = timezone.now().date()
+            existing_record = AttendanceRecord.objects.filter(
                 student=best_match,
-                timestamp=timezone.now(),
-                recognition_model=used_model
+                course=course,
+                attendance_date=today
+            ).first()
+
+            if existing_record:
+                return JsonResponse({
+                    'status': 'info',
+                    'message': f'{best_match.full_name} already marked {existing_record.status} today for {course.course_code}.',
+                    'student': {
+                        'name': best_match.full_name,
+                        'matric_number': best_match.matric_number,
+                        'course': course.course_code,
+                        'existing_status': existing_record.status,
+                        'time': existing_record.check_in_time.strftime('%H:%M')
+                    }
+                })
+
+            # Create attendance record
+            attendance_record = AttendanceRecord.objects.create(
+                student=best_match,
+                course=course,
+                status='present',
+                recognition_model='cnn'
             )
+
+            # Update attendance rate
+            best_match.calculate_attendance_rate()
+
+            # Log activity
+            if request.user.is_authenticated:
+                log_user_activity(
+                    request.user, 'USE_FACE_RECOGNITION', 'attendance',
+                    f"Face recognition successful for {best_match.full_name} in {course.course_code}",
+                    request
+                )
+
             return JsonResponse({
-                'status': 'success', 
-                'message': f'Attendance recorded for {best_match.name}.',
-                'student_name': best_match.name,
-                'model_used': used_model
+                'status': 'success',
+                'message': f'Welcome {best_match.full_name}! Attendance marked for {course.course_code}.',
+                'student': {
+                    'id': best_match.id,
+                    'name': best_match.full_name,
+                    'matric_number': best_match.matric_number,
+                    'department': best_match.department.department_name,
+                    'course': course.course_code,
+                    'confidence': round((1 - best_distance) * 100, 2),
+                    'attendance_rate': float(best_match.attendance_rate)
+                }
             })
         else:
-            return JsonResponse({'status': 'fail', 'message': 'Face not recognized. Please register first.'}, status=404)
+            # Log failed recognition
+            if request.user.is_authenticated:
+                log_user_activity(
+                    request.user, 'USE_FACE_RECOGNITION', 'attendance',
+                    f"Face recognition failed for course {course.course_code}",
+                    request, status='failed'
+                )
+
+            return JsonResponse({
+                'status': 'fail',
+                'message': 'Face not recognized or student not enrolled in this course.'
+            })
 
     except Exception as e:
-        print(f"❌ Attendance error: {str(e)}")
-        return JsonResponse({'status': 'fail', 'message': f'Server error: {str(e)}'}, status=500)
+        return JsonResponse({
+            'status': 'fail',
+            'message': f'Recognition failed: {str(e)}'
+        }, status=500)
 
+# --------------------------
+# Dashboard and Analytics APIs
+# --------------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    """Get dashboard statistics"""
+    user = request.user
+    
+    # Base statistics
+    stats = {
+        'total_students': Student.objects.filter(status='active').count(),
+        'total_courses': Course.objects.filter(status='active').count(),
+        'total_departments': Department.objects.filter(is_active=True).count(),
+        'total_specializations': Specialization.objects.filter(is_active=True).count(),
+        'total_levels': Level.objects.filter(is_active=True).count(),
+        'total_attendance_today': AttendanceRecord.objects.filter(
+            attendance_date=timezone.now().date()
+        ).count(),
+    }
+    
+    # Role-specific statistics
+    if hasattr(user, 'role'):
+        if user.role == 'teacher':
+            # Teacher-specific stats
+            teacher_courses = user.taught_courses.filter(status='active')
+            stats.update({
+                'my_courses': teacher_courses.count(),
+                'my_students': Student.objects.filter(
+                    enrolled_courses__in=teacher_courses
+                ).distinct().count(),
+                'my_attendance_today': AttendanceRecord.objects.filter(
+                    course__in=teacher_courses,
+                    attendance_date=timezone.now().date()
+                ).count(),
+            })
+        elif user.role in ['superadmin', 'staff']:
+            # Admin stats
+            stats.update({
+                'total_users': AdminUser.objects.filter(is_active=True).count(),
+                'total_teachers': AdminUser.objects.filter(role='teacher', is_active=True).count(),
+                'attendance_rate_avg': Student.objects.filter(status='active').aggregate(
+                    avg_rate=Avg('attendance_rate')
+                )['avg_rate'] or 0,
+            })
+    
+    return Response(stats)
 
-@csrf_exempt
-def post_student_data(request):
-    if request.method == 'POST':
-        name = request.POST.get('name')
-        matric_number = request.POST.get('matric_number')
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def department_stats(request):
+    """Get statistics by department"""
+    departments = Department.objects.filter(is_active=True).annotate(
+        total_students=Count('students', filter=Q(students__status='active')),
+        total_courses=Count('courses', filter=Q(courses__status='active')),
+        total_specializations=Count('specializations', filter=Q(specializations__is_active=True)),
+        average_attendance_rate=Avg('students__attendance_rate', filter=Q(students__status='active'))
+    ).order_by('department_name')
+    
+    serializer = DepartmentStatsSerializer([
+        {
+            'department_name': dept.department_name,
+            'total_students': dept.total_students,
+            'total_courses': dept.total_courses,
+            'total_specializations': dept.total_specializations,
+            'average_attendance_rate': dept.average_attendance_rate or 0
+        }
+        for dept in departments
+    ], many=True)
+    
+    return Response(serializer.data)
 
-        if not name or not matric_number:
-            return JsonResponse({'status': 'fail', 'message': 'Name and matric number required.'}, status=400)
-
-        if Student.objects.filter(matric_number=matric_number).exists():
-            return JsonResponse({'status': 'fail', 'message': 'Student already exists.'}, status=400)
-
-        Student.objects.create(
-            name=name, 
-            matric_number=matric_number, 
-            student_id=matric_number,  # Set student_id for compatibility
-            face_encoding=b''
-        )
-        return JsonResponse({'status': 'success', 'message': 'Student info saved. Awaiting face scan.'})
-
-
-@csrf_exempt
-def notify(request):
-    if request.method == 'GET':
-        message = request.GET.get('message', 'Notification received.')
-        return JsonResponse({'status': 'info', 'message': message})
-
-
-@csrf_exempt
-def admin_users_view(request):
-    if request.method == 'GET':
-        users = AdminUser.objects.all()
-        data = [{
-            "id": user.id,
-            "name": user.first_name or user.username,
-            "email": user.email,
-            "phone": user.phone,
-            "role": user.role,
-            "status": "Active" if user.is_active else "Inactive",
-            "permissions": user.permissions,
-            "lastLogin": user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else ""
-        } for user in users]
-        return JsonResponse(data, safe=False)
-
-    elif request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-
-            user = AdminUser.objects.create(
-                username=data['email'],
-                email=data['email'],
-                first_name=data.get('name', ''),
-                phone=data.get('phone', ''),
-                role=data.get('role', 'Staff'),
-                permissions=data.get('permissions', []),
-                password=make_password('default1234')
-            )
-            return JsonResponse({'status': 'success', 'id': user.id})
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-
-def user_list(request):
-    users = AdminUser.objects.all()
-    return render(request, 'user_list.html', {'users': users})
-
-
-@csrf_exempt
-def get_students(request):
-    if request.method == 'GET':
-        students = Student.objects.all()
-        data = [
-            {
-                "id": student.id,
-                "name": student.name,
-                "matric_number": student.matric_number,
-                "face_encoding_model": student.face_encoding_model,
-                "registered_on": student.registered_on.strftime("%Y-%m-%d %H:%M")
-            }
-            for student in students
-        ]
-        return JsonResponse(data, safe=False)
-
-    return JsonResponse({"error": "Only GET allowed"}, status=405)
-
-
-@csrf_exempt
-def update_student(request, id):
-    if request.method != 'PUT':
-        return JsonResponse({'error': 'Only PUT allowed'}, status=405)
-
-    try:
-        body_unicode = request.body.decode('utf-8')
-        data = json.loads(body_unicode)
-
-        student = Student.objects.get(id=id)
-
-        student.name = data.get('name', student.name)
-        student.matric_number = data.get('matric_number', student.matric_number)
-        student.student_id = data.get('student_id', student.student_id) or student.matric_number
-        student.email = data.get('email', student.email)
-        student.student_class = data.get('student_class', student.student_class)
-        student.face_encoding_model = data.get('face_encoding_model', student.face_encoding_model)
-        student.save()
-
-        return JsonResponse({'status': 'success', 'message': 'Student updated'})
-    except Student.DoesNotExist:
-        return JsonResponse({'error': 'Student not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
-@require_http_methods(["GET"])
-def get_attendance_records(request):
-    date = request.GET.get('date')
-    student_name = request.GET.get('name')
-    matric_number = request.GET.get('matric_number')
-
-    queryset = AttendanceRecord.objects.select_related('student').all()
-
-    if date:
-        queryset = queryset.filter(timestamp__date=date)
-    if student_name:
-        queryset = queryset.filter(student__name__icontains=student_name)
-    if matric_number:
-        queryset = queryset.filter(student__matric_number__icontains=matric_number)
-
-    records = [{
-        "id": record.id,
-        "student_id": record.student.id,
-        "student_name": record.student.name,
-        "matric_number": record.student.matric_number,
-        "status": record.status,
-        "check_in": record.timestamp.strftime("%H:%M"),
-        "date": record.timestamp.strftime("%Y-%m-%d"),
-    } for record in queryset]
-
-    return JsonResponse(
-        records,
-        safe=False,
-        json_dumps_params={"ensure_ascii": False}
-    )
-
-
-@csrf_exempt
-@require_http_methods(["PUT"])
-def update_attendance_record(request, record_id):
-    try:
-        data = json.loads(request.body)
-        record = AttendanceRecord.objects.select_related('student').get(id=record_id)
-
-        new_status = data.get('status')
-        new_time = data.get('check_in')
-
-        if new_status:
-            record.status = new_status
-
-        if new_time:
-            date_part = record.timestamp.strftime("%Y-%m-%d")
-            updated_timestamp = datetime.datetime.strptime(f"{date_part} {new_time}", "%Y-%m-%d %H:%M")
-            record.timestamp = timezone.make_aware(updated_timestamp)
-
-        record.save()
-        return JsonResponse({"status": "success", "message": "Attendance updated"})
-
-    except AttendanceRecord.DoesNotExist:
-        return JsonResponse({'error': 'Attendance record not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
-@require_http_methods(["GET"])
-def get_weekly_attendance_summary(request):
-    today = timezone.now().date()
-    summary = []
-
-    for i in range(7):
-        day = today - timedelta(days=i)
-        records = AttendanceRecord.objects.filter(timestamp__date=day)
-        present_count = records.filter(status='Present').count()
-        absent_count = records.filter(status='Absent').count()
-
-        summary.append({
-            "date": day.strftime("%a"),
-            "present": present_count,
-            "absent": absent_count,
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def course_stats(request):
+    """Get statistics by course"""
+    user = request.user
+    
+    # Filter courses based on user role
+    courses = Course.objects.filter(status='active')
+    if hasattr(user, 'role') and user.role == 'teacher':
+        courses = courses.filter(teachers=user)
+    
+    courses = courses.annotate(
+        enrolled_students_count=Count('enrolled_students', filter=Q(enrolled_students__status='active')),
+        total_attendance_records=Count('attendance_records'),
+    ).select_related('department', 'level').order_by('course_code')
+    
+    course_data = []
+    for course in courses:
+        # Calculate average attendance rate for this course
+        attendance_records = course.attendance_records.all()
+        if attendance_records.exists():
+            present_count = attendance_records.filter(status='present').count()
+            avg_rate = (present_count / attendance_records.count()) * 100
+        else:
+            avg_rate = 0
+        
+        course_data.append({
+            'course_code': course.course_code,
+            'course_name': course.course_name,
+            'enrolled_students': course.enrolled_students_count,
+            'total_attendance_records': course.total_attendance_records,
+            'average_attendance_rate': round(avg_rate, 2)
         })
-
-    return JsonResponse(list(reversed(summary)), safe=False)
-
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Custom serializer to include user data in token response"""
     
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        
-        # Add user data to the response
-        user = self.user
-        data['user'] = {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'name': f"{user.first_name} {user.last_name}".strip() or user.username,
-            'phone': getattr(user, 'phone', ''),
-            'is_active': user.is_active,
-            'is_staff': getattr(user, 'is_staff', False),
-            'is_superuser': getattr(user, 'is_superuser', False),
-            'role': getattr(user, 'role', 'Admin'),
-        }
-        return data
+    serializer = CourseStatsSerializer(course_data, many=True)
+    return Response(serializer.data)
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    """Custom token view that includes user data"""
-    serializer_class = CustomTokenObtainPairSerializer
-
-@api_view(['GET', 'PUT'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_current_user(request):
-    """
-    Get or update current authenticated user information
-    """
-    if request.method == 'GET':
-        try:
-            user = request.user
-            
-            user_data = {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': getattr(user, 'first_name', ''),
-                'last_name': getattr(user, 'last_name', ''),
-                'name': f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip() or user.username,
-                'phone': getattr(user, 'phone', ''),
-                'is_active': user.is_active,
-                'is_staff': getattr(user, 'is_staff', False),
-                'is_superuser': getattr(user, 'is_superuser', False),
-                'last_login': user.last_login.isoformat() if user.last_login else None,
-                'date_joined': getattr(user, 'date_joined', None),
-            }
-            
-            # Add AdminUser specific fields if available
-            if hasattr(user, 'role'):
-                user_data['role'] = user.role
-            if hasattr(user, 'permissions'):
-                user_data['permissions'] = user.permissions
-                
-            # Convert date_joined to ISO format if it exists
-            if user_data['date_joined']:
-                user_data['date_joined'] = user_data['date_joined'].isoformat()
-            
-            return Response(user_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response({
-                'error': 'Failed to get user information',
-                'message': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+def teacher_stats(request):
+    """Get statistics by teacher"""
+    if not check_role_permission(request.user, ['superadmin', 'staff']):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
     
-    elif request.method == 'PUT':
-        try:
-            user = request.user
-            data = request.data
-            
-            # Check if user can update (only superusers can update their own profile)
-            if not user.is_superuser:
-                return Response({
-                    'error': 'Permission denied',
-                    'message': 'Only superadmin can update profile information'
-                }, status=status.HTTP_403_FORBIDDEN)
-            
-            # Validate current password if changing password
-            if 'new_password' in data and data['new_password']:
-                current_password = data.get('current_password')
-                if not current_password:
-                    return Response({
-                        'error': 'Current password required',
-                        'message': 'Current password is required to change password'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                if not check_password(current_password, user.password):
-                    return Response({
-                        'error': 'Invalid password',
-                        'message': 'Current password is incorrect'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Update basic fields
-            if 'first_name' in data:
-                user.first_name = data['first_name']
-            if 'last_name' in data:
-                user.last_name = data['last_name']
-            if 'email' in data:
-                # Check if email is already taken by another user
-                if User.objects.filter(email=data['email']).exclude(id=user.id).exists():
-                    return Response({
-                        'error': 'Email already exists',
-                        'message': 'This email is already registered to another user'
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                user.email = data['email']
-            
-            # Update phone if user model has phone field
-            if 'phone' in data and hasattr(user, 'phone'):
-                user.phone = data['phone']
-            
-            # Update password if provided
-            if 'new_password' in data and data['new_password']:
-                user.set_password(data['new_password'])
-            
-            user.save()
-            
-            # Return updated user data
-            updated_user_data = {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'name': f"{user.first_name} {user.last_name}".strip() or user.username,
-                'phone': getattr(user, 'phone', ''),
-                'is_active': user.is_active,
-                'is_staff': getattr(user, 'is_staff', False),
-                'is_superuser': getattr(user, 'is_superuser', False),
-                'last_login': user.last_login.isoformat() if user.last_login else None,
-                'date_joined': user.date_joined.isoformat() if hasattr(user, 'date_joined') else None,
-                'role': getattr(user, 'role', None),
-                'permissions': getattr(user, 'permissions', []),
-            }
-            
-            return Response(updated_user_data, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response({
-                'error': 'Failed to update profile',
-                'message': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout_user(request):
-    """
-    Logout user by blacklisting the refresh token
-    """
-    try:
-        refresh_token = request.data.get('refresh_token')
-        
-        if refresh_token:
-            try:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                message = 'Successfully logged out and token blacklisted'
-            except Exception as e:
-                # If blacklisting fails, still consider logout successful
-                message = f'Logged out (token blacklist failed: {str(e)})'
-        else:
-            message = 'Logged out (no refresh token provided)'
-        
-        return Response({
-            'success': True,
-            'message': message
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'message': f'Error during logout: {str(e)}'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-# Helper function to log user activities
-def log_user_activity(user, action, resource, details, request, resource_id=None, status_type='success'):
-    """Log user activity"""
-    try:
-        UserActivity.objects.create(
-            user=user,
-            action=action,
-            resource=resource,
-            resource_id=resource_id,
-            details=details,
-            ip_address=get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', ''),
-            session_id=request.session.session_key or '',
-            status=status_type
-        )
-    except Exception as e:
-        print(f"Error logging activity: {e}")
-
-def get_client_ip(request):
-    """Get client IP address from request"""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def get_user_activities(request):
-    """Get user activities with filtering"""
-    try:
-        # Get query parameters for filtering
-        user_filter = request.GET.get('user', '')
-        action_filter = request.GET.get('action', '')
-        status_filter = request.GET.get('status', '')
-        days = int(request.GET.get('days', 7))  # Default last 7 days
-        
-        # Base queryset
-        activities = UserActivity.objects.select_related('user').all()
-        
-        # Apply filters
-        if user_filter:
-            activities = activities.filter(user__username=user_filter)
-        if action_filter:
-            activities = activities.filter(action=action_filter)
-        if status_filter:
-            activities = activities.filter(status=status_filter)
-        
-        # Date filter
-        start_date = timezone.now() - timedelta(days=days)
-        activities = activities.filter(timestamp__gte=start_date)
-        
-        # Limit results
-        activities = activities[:500]  # Limit to 500 recent activities
-        
-        # Serialize data
-        data = []
-        for activity in activities:
-            data.append({
-                'id': activity.id,
-                'user': {
-                    'username': activity.user.username,
-                    'full_name': f"{activity.user.first_name} {activity.user.last_name}".strip() or activity.user.username,
-                    'role': getattr(activity.user, 'role', 'User')
-                },
-                'action': activity.action,
-                'resource': activity.resource,
-                'resource_id': activity.resource_id,
-                'details': activity.details,
-                'ip_address': activity.ip_address,
-                'timestamp': activity.timestamp.isoformat(),
-                'status': activity.status,
-                'session_id': activity.session_id
-            })
-        
-        return Response(data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to fetch user activities',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def get_login_attempts(request):
-    """Get login attempts"""
-    try:
-        days = int(request.GET.get('days', 7))
-        start_date = timezone.now() - timedelta(days=days)
-        
-        attempts = LoginAttempt.objects.filter(
-            timestamp__gte=start_date
-        ).order_by('-timestamp')[:200]
-        
-        data = []
-        for attempt in attempts:
-            data.append({
-                'id': attempt.id,
-                'username': attempt.username,
-                'ip_address': attempt.ip_address,
-                'location': attempt.location,
-                'timestamp': attempt.timestamp.isoformat(),
-                'success': attempt.success,
-                'user_agent': attempt.user_agent,
-                'reason': attempt.failure_reason
-            })
-        
-        return Response(data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to fetch login attempts',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def get_active_sessions(request):
-    """Get active user sessions"""
-    try:
-        # Clean up expired sessions first
-        expired_sessions = ActiveSession.objects.filter(
-            last_activity__lt=timezone.now() - timedelta(hours=24)
-        )
-        expired_sessions.delete()
-        
-        sessions = ActiveSession.objects.select_related('user').filter(
-            last_activity__gte=timezone.now() - timedelta(hours=24)
-        ).order_by('-last_activity')
-        
-        data = []
-        for session in sessions:
-            data.append({
-                'id': session.session_key,
-                'user': session.user.username,
-                'role': getattr(session.user, 'role', 'User'),
-                'ip_address': session.ip_address,
-                'location': session.location,
-                'device': session.user_agent,
-                'last_activity': session.last_activity.isoformat(),
-                'created_at': session.created_at.isoformat(),
-                'activity_count': session.activity_count
-            })
-        
-        return Response(data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to fetch active sessions',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def terminate_session(request, session_id):
-    """Terminate a user session"""
-    try:
-        # Remove from Django sessions
-        try:
-            session = Session.objects.get(session_key=session_id)
-            session.delete()
-        except Session.DoesNotExist:
-            pass
-        
-        # Remove from our tracking
-        try:
-            active_session = ActiveSession.objects.get(session_key=session_id)
-            terminated_user = active_session.user.username
-            active_session.delete()
-        except ActiveSession.DoesNotExist:
-            terminated_user = "Unknown"
-        
-        # Log the action
-        log_user_activity(
-            user=request.user,
-            action='TERMINATE_SESSION',
-            resource='sessions',
-            details=f'Terminated session for user: {terminated_user}',
-            request=request
-        )
-        
-        return Response({
-            'success': True,
-            'message': 'Session terminated successfully'
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to terminate session',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def get_security_settings(request):
-    """Get current security settings"""
-    try:
-        security_settings = SecuritySettings.get_settings()
-        
-        data = {
-            'max_login_attempts': security_settings.max_login_attempts,
-            'lockout_duration': security_settings.lockout_duration,
-            'session_timeout': security_settings.session_timeout,
-            'require_2fa': security_settings.require_2fa,
-            'password_expiry_days': security_settings.password_expiry_days,
-            'min_password_length': security_settings.min_password_length,
-            'allow_multiple_sessions': security_settings.allow_multiple_sessions,
-            'ip_whitelist_enabled': security_settings.ip_whitelist_enabled,
-            'audit_log_retention_days': security_settings.audit_log_retention_days,
-            'track_user_activities': security_settings.track_user_activities,
-            'alert_on_suspicious_activity': security_settings.alert_on_suspicious_activity,
-        }
-        
-        return Response(data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to fetch security settings',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def update_security_settings(request):
-    """Update security settings"""
-    try:
-        security_settings = SecuritySettings.get_settings()
-        
-        # Update fields from request data
-        for field in ['max_login_attempts', 'lockout_duration', 'session_timeout', 
-                     'require_2fa', 'password_expiry_days', 'min_password_length',
-                     'allow_multiple_sessions', 'ip_whitelist_enabled', 
-                     'audit_log_retention_days', 'track_user_activities', 
-                     'alert_on_suspicious_activity']:
-            if field in request.data:
-                setattr(security_settings, field, request.data[field])
-        
-        security_settings.updated_by = request.user
-        security_settings.save()
-        
-        # Log the action
-        log_user_activity(
-            user=request.user,
-            action='CHANGE_SECURITY_SETTINGS',
-            resource='security_settings',
-            details='Updated security configuration',
-            request=request
-        )
-        
-        return Response({
-            'success': True,
-            'message': 'Security settings updated successfully'
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to update security settings',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def export_activity_log(request):
-    """Export activity log as CSV"""
-    try:
-        days = int(request.GET.get('days', 30))
-        start_date = timezone.now() - timedelta(days=days)
-        
-        activities = UserActivity.objects.select_related('user').filter(
-            timestamp__gte=start_date
-        ).order_by('-timestamp')
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="activity_log_{timezone.now().strftime("%Y%m%d")}.csv"'
-        
-        writer = csv.writer(response)
-        writer.writerow([
-            'Timestamp', 'User', 'Role', 'Action', 'Resource', 
-            'Details', 'Status', 'IP Address', 'User Agent'
-        ])
-        
-        for activity in activities:
-            writer.writerow([
-                activity.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                activity.user.username,
-                getattr(activity.user, 'role', 'User'),
-                activity.get_action_display(),
-                activity.resource,
-                activity.details,
-                activity.get_status_display(),
-                activity.ip_address,
-                activity.user_agent
-            ])
-        
-        # Log the export action
-        log_user_activity(
-            user=request.user,
-            action='GENERATE_REPORT',
-            resource='activity_log',
-            details=f'Exported activity log for last {days} days',
-            request=request
-        )
-        
-        return response
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to export activity log',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def get_security_statistics(request):
-    """Get security statistics and metrics"""
-    try:
-        days = int(request.GET.get('days', 7))
-        start_date = timezone.now() - timedelta(days=days)
-        
-        # Activity statistics
-        total_activities = UserActivity.objects.filter(timestamp__gte=start_date).count()
-        failed_activities = UserActivity.objects.filter(
-            timestamp__gte=start_date, status='failed'
-        ).count()
-        
-        # Login statistics
-        total_logins = LoginAttempt.objects.filter(timestamp__gte=start_date).count()
-        failed_logins = LoginAttempt.objects.filter(
-            timestamp__gte=start_date, success=False
-        ).count()
-        
-        # Active users
-        active_users = UserActivity.objects.filter(
-            timestamp__gte=start_date
-        ).values('user').distinct().count()
-        
-        # Active sessions
-        active_sessions = ActiveSession.objects.filter(
-            last_activity__gte=timezone.now() - timedelta(hours=24)
-        ).count()
-        
-        data = {
-            'total_activities': total_activities,
-            'failed_activities': failed_activities,
-            'total_logins': total_logins,
-            'failed_logins': failed_logins,
-            'active_users': active_users,
-            'active_sessions': active_sessions,
-            'period_days': days
-        }
-        
-        return Response(data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': 'Failed to fetch security statistics',
-            'message': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_system_settings(request):
-    """Get current system settings"""
-    try:
-        settings_obj = SystemSettings.get_settings()
-        serializer = SystemSettingsSerializer(settings_obj)
-        return Response(serializer.data)
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to retrieve system settings: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['POST', 'PUT'])
-@permission_classes([IsAuthenticated])
-def update_system_settings(request):
-    """Update system settings"""
-    try:
-        settings_obj = SystemSettings.get_settings()
-        serializer = SystemSettingsUpdateSerializer(settings_obj, data=request.data, partial=True)
-        
-        if serializer.is_valid():
-            serializer.save(updated_by=request.user)
-            return Response({'message': 'System settings updated successfully'})
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to update system settings: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_system_stats(request):
-    """Get system statistics"""
-    try:
-        # Count totals
-        total_students = Student.objects.count()
-        total_users = User.objects.count()
-        total_attendance_records = Attendance.objects.count()
-        
-        # Database size (SQLite specific since you're using db.sqlite3)
-        try:
-            db_path = settings.DATABASES['default']['NAME']
-            db_size_bytes = os.path.getsize(db_path)
-            db_size = f"{round(db_size_bytes / (1024 * 1024), 1)} MB"
-        except:
-            db_size = "Unknown"
-        
-        # Storage usage
-        try:
-            disk_usage = psutil.disk_usage('/')
-            storage_used = f"{round(disk_usage.used / (1024**3), 1)} GB"
-        except:
-            storage_used = "Unknown"
-        
-        # System uptime
-        try:
-            uptime_seconds = int(time.time() - psutil.boot_time())
-            uptime_days = uptime_seconds // 86400
-            uptime_hours = (uptime_seconds % 86400) // 3600
-            system_uptime = f"{uptime_days} days, {uptime_hours} hours"
-        except:
-            system_uptime = "Unknown"
-        
-        # Last backup
-        last_backup = SystemBackup.objects.first()
-        last_backup_str = last_backup.created_at.isoformat() if last_backup else "Never"
-        
-        stats = {
-            'total_students': total_students,
-            'total_users': total_users,
-            'total_attendance_records': total_attendance_records,
-            'database_size': db_size,
-            'storage_used': storage_used,
-            'system_uptime': system_uptime,
-            'last_backup': last_backup_str,
-            'system_version': getattr(settings, 'VERSION', '1.0.0')
-        }
-        
-        serializer = SystemStatsSerializer(stats)
-        return Response(serializer.data)
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to retrieve system stats: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def test_email_settings(request):
-    """Test email configuration by sending a test email"""
-    try:
-        settings_obj = SystemSettings.get_settings()
-        
-        if not settings_obj.email_enabled:
-            return Response(
-                {'error': 'Email is not enabled in system settings'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Configure email settings temporarily
-        connection = get_connection(
-            host=settings_obj.smtp_host,
-            port=settings_obj.smtp_port,
-            username=settings_obj.smtp_username,
-            password=settings_obj.smtp_password,
-            use_tls=settings_obj.smtp_use_tls,
-        )
-        
-        # Send test email
-        email = EmailMessage(
-            subject='FACE.IT System - Test Email',
-            body=f'This is a test email from the FACE.IT attendance system.\n\nSent at: {timezone.now()}',
-            from_email=f"{settings_obj.email_from_name} <{settings_obj.email_from_address}>",
-            to=[request.user.email] if request.user.email else [settings_obj.school_email],
-            connection=connection,
-        )
-        
-        email.send()
-        
-        return Response({'message': 'Test email sent successfully'})
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to send test email: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_backup(request):
-    """Create a system backup"""
-    try:
-        # Create backup filename
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f"faceit_backup_{timestamp}.zip"
-        
-        # Create temporary directory for backup files
-        with tempfile.TemporaryDirectory() as temp_dir:
-            backup_path = os.path.join(temp_dir, backup_filename)
-            
-            # Create zip file
-            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Export students data
-                students_file = os.path.join(temp_dir, 'students.csv')
-                with open(students_file, 'w', newline='', encoding='utf-8') as csvfile:
-                    writer = csv.writer(csvfile)
-                    writer.writerow(['ID', 'Student ID', 'Name', 'Email', 'Class', 'Created At'])
-                    for student in Student.objects.all():
-                        writer.writerow([
-                            student.id, 
-                            student.student_id or student.matric_number, 
-                            student.name, 
-                            student.email, 
-                            student.student_class, 
-                            student.created_at
-                        ])
-                zipf.write(students_file, 'students.csv')
-                
-                # Export attendance data
-                attendance_file = os.path.join(temp_dir, 'attendance.csv')
-                with open(attendance_file, 'w', newline='', encoding='utf-8') as csvfile:
-                    writer = csv.writer(csvfile)
-                    writer.writerow(['ID', 'Student ID', 'Student Name', 'Date', 'Status', 'Check In', 'Check Out', 'Created At'])
-                    for attendance in Attendance.objects.select_related('student').all():
-                        writer.writerow([
-                            attendance.id, 
-                            attendance.student.student_id or attendance.student.matric_number, 
-                            attendance.student.name,
-                            attendance.date, 
-                            attendance.status, 
-                            attendance.check_in_time,
-                            attendance.check_out_time, 
-                            attendance.created_at
-                        ])
-                zipf.write(attendance_file, 'attendance.csv')
-                
-                # Export system settings
-                settings_file = os.path.join(temp_dir, 'system_settings.json')
-                settings_obj = SystemSettings.get_settings()
-                settings_data = SystemSettingsSerializer(settings_obj).data
-                with open(settings_file, 'w') as jsonfile:
-                    json.dump(settings_data, jsonfile, indent=2, default=str)
-                zipf.write(settings_file, 'system_settings.json')
-                
-                # Copy the SQLite database
-                db_path = settings.DATABASES['default']['NAME']
-                if os.path.exists(db_path):
-                    zipf.write(db_path, 'database.sqlite3')
-            
-            # Get file size
-            file_size = os.path.getsize(backup_path)
-            
-            # Save backup record
-            backup_record = SystemBackup.objects.create(
-                filename=backup_filename,
-                file_path=backup_path,  # In production, move to permanent storage
-                file_size=file_size,
-                backup_type='manual',
-                created_by=request.user
-            )
-            
-            return Response({
-                'message': 'Backup created successfully',
-                'backup_id': backup_record.id,
-                'filename': backup_filename,
-                'size_mb': round(file_size / (1024 * 1024), 2)
-            })
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to create backup: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def system_health_check(request):
-    """Check system health status"""
-    try:
-        health_status = {
-            'database': 'connected',
-            'storage': 'available',
-            'email': 'not_configured',
-            'face_recognition': 'active'
-        }
-        
-        # Check database connection
-        try:
-            from django.db import connection
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-            health_status['database'] = 'connected'
-        except:
-            health_status['database'] = 'error'
-        
-        # Check email configuration
-        settings_obj = SystemSettings.get_settings()
-        if settings_obj.email_enabled and settings_obj.smtp_host:
-            health_status['email'] = 'configured'
-        
-        # Check storage
-        try:
-            disk_usage = psutil.disk_usage('/')
-            if disk_usage.free < 1024**3:  # Less than 1GB free
-                health_status['storage'] = 'low_space'
-        except:
-            health_status['storage'] = 'error'
-        
-        return Response(health_status)
-    except Exception as e:
-        return Response(
-            {'error': f'Failed to check system health: {str(e)}'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-@csrf_exempt
-def system_health_check_public(request):
-    """
-    Public health check endpoint that doesn't require authentication
-    This is specifically for the auto-detection system
-    """
-    if request.method == 'GET':
-        try:
-            # Basic health checks
-            health_status = {
-                'status': 'healthy',
-                'database': 'connected',
-                'storage': 'available',
-                'email': 'not_configured',
-                'face_recognition': 'active',
-                'timestamp': timezone.now().isoformat(),
-                'version': getattr(settings, 'VERSION', '1.0.0')
-            }
-            
-            # Test database connection
-            try:
-                from django.db import connection
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT 1")
-                health_status['database'] = 'connected'
-            except Exception as e:
-                health_status['database'] = 'error'
-                health_status['status'] = 'unhealthy'
-            
-            return JsonResponse(health_status, status=200)
-            
-        except Exception as e:
-            return JsonResponse({
-                'status': 'error',
-                'message': str(e),
-                'timestamp': timezone.now().isoformat()
-            }, status=500)
+    teachers = AdminUser.objects.filter(role='teacher', is_active=True).annotate(
+        total_courses=Count('taught_courses', filter=Q(taught_courses__status='active')),
+        total_students=Count('taught_courses__enrolled_students', 
+                           filter=Q(taught_courses__enrolled_students__status='active'), 
+                           distinct=True),
+        total_attendance_records=Count('taught_courses__attendance_records')
+    ).order_by('first_name', 'last_name')
     
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+    teacher_data = []
+    for teacher in teachers:
+        teacher_data.append({
+            'teacher_name': f"{teacher.first_name} {teacher.last_name}",
+            'total_courses': teacher.total_courses,
+            'total_students': teacher.total_students,
+            'total_attendance_records': teacher.total_attendance_records
+        })
+    
+    serializer = TeacherStatsSerializer(teacher_data, many=True)
+    return Response(serializer.data)
+
+# --------------------------
+# Enrollment Management APIs
+# --------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def manage_student_enrollment(request):
+    """Manage individual student course enrollment"""
+    if not check_role_permission(request.user, ['superadmin', 'staff']):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = StudentEnrollmentSerializer(data=request.data)
+    if serializer.is_valid():
+        student_id = serializer.validated_data['student_id']
+        course_ids = serializer.validated_data['course_ids']
+        
+        student = Student.objects.get(id=student_id)
+        courses = Course.objects.filter(id__in=course_ids, status='active')
+        
+        student.enrolled_courses.set(courses)
+        
+        log_user_activity(
+            request.user, 'UPDATE_STUDENT', 'students',
+            f"Updated course enrollment for {student.full_name}",
+            request
+        )
+        
+        return Response({
+            'message': f'Updated enrollment for {student.full_name}',
+            'enrolled_courses': courses.count()
+        })
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def bulk_enrollment(request):
+    """Bulk enrollment based on academic structure"""
+    if not check_role_permission(request.user, ['superadmin', 'staff']):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = BulkEnrollmentSerializer(data=request.data)
+    if serializer.is_valid():
+        data = serializer.validated_data
+        course_ids = data['course_ids']
+        courses = Course.objects.filter(id__in=course_ids, status='active')
+        
+        # Build student filter
+        student_filter = Q(status='active')
+        
+        if data.get('department_id'):
+            student_filter &= Q(department_id=data['department_id'])
+        if data.get('specialization_id'):
+            student_filter &= Q(specialization_id=data['specialization_id'])
+        if data.get('level_id'):
+            student_filter &= Q(level_id=data['level_id'])
+        
+        students = Student.objects.filter(student_filter)
+        
+        # Perform bulk enrollment
+        enrolled_count = 0
+        for student in students:
+            student.enrolled_courses.add(*courses)
+            enrolled_count += 1
+        
+        log_user_activity(
+            request.user, 'MANAGE_COURSES', 'courses',
+            f"Bulk enrolled {enrolled_count} students in {courses.count()} courses",
+            request
+        )
+        
+        return Response({
+            'message': f'Bulk enrollment completed',
+            'students_enrolled': enrolled_count,
+            'courses_count': courses.count()
+        })
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# --------------------------
+# System Management APIs (Updated)
+# --------------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def system_stats(request):
+    """Get comprehensive system statistics"""
+    if not check_role_permission(request.user, ['superadmin', 'staff']):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get database size
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();")
+        db_size = cursor.fetchone()[0] if cursor.fetchone() else 0
+    
+    # Get storage usage
+    storage_used = psutil.disk_usage('/').used
+    
+    # Get system uptime (simplified)
+    uptime_seconds = time.time() - psutil.boot_time()
+    uptime_str = str(timedelta(seconds=int(uptime_seconds)))
+    
+    # Get last backup
+    last_backup = SystemBackup.objects.first()
+    last_backup_str = last_backup.created_at.strftime('%Y-%m-%d %H:%M') if last_backup else 'Never'
+    
+    stats = {
+        'total_students': Student.objects.count(),
+        'total_users': AdminUser.objects.count(),
+        'total_attendance_records': AttendanceRecord.objects.count(),
+        'total_courses': Course.objects.count(),
+        'total_departments': Department.objects.count(),
+        'total_specializations': Specialization.objects.count(),
+        'total_levels': Level.objects.count(),
+        'database_size': f"{db_size / (1024*1024):.2f} MB",
+        'storage_used': f"{storage_used / (1024*1024*1024):.2f} GB",
+        'system_uptime': uptime_str,
+        'last_backup': last_backup_str,
+        'system_version': '2.0.0'
+    }
+    
+    serializer = SystemStatsSerializer(stats)
+    return Response(serializer.data)
+
+# --------------------------
+# Legacy Compatibility Functions
+# --------------------------
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_students(request):
+    """Legacy endpoint for getting students"""
+    students = Student.objects.filter(status='active').select_related(
+        'department', 'specialization', 'level'
+    )
+    
+    # Legacy format for backward compatibility
+    student_data = []
+    for student in students:
+        student_data.append({
+            'id': student.id,
+            'name': student.full_name,  # Legacy field
+            'matric_number': student.matric_number,
+            'email': student.email,
+            'department': student.department.department_name,
+            'specialization': student.specialization.specialization_name,
+            'level': student.level.level_name,
+            'student_class': f"{student.department.department_code}-{student.level.level_name}",  # Legacy
+            'attendance_rate': float(student.attendance_rate),
+            'created_at': student.created_at.isoformat(),
+        })
+    
+    return Response(student_data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_attendance_records(request):
+    """Legacy endpoint for getting attendance records"""
+    records = AttendanceRecord.objects.select_related('student', 'course').all()
+    
+    # Add filters
+    student_id = request.query_params.get('student_id')
+    if student_id:
+        records = records.filter(student_id=student_id)
+    
+    course_id = request.query_params.get('course_id')
+    if course_id:
+        records = records.filter(course_id=course_id)
+    
+    date_from = request.query_params.get('date_from')
+    if date_from:
+        records = records.filter(check_in_time__date__gte=date_from)
+    
+    # Legacy format
+    record_data = []
+    for record in records:
+        record_data.append({
+            'id': record.id,
+            'student': {
+                'id': record.student.id,
+                'name': record.student.full_name,
+                'matric_number': record.student.matric_number,
+            },
+            'course': {
+                'id': record.course.id,
+                'code': record.course.course_code,
+                'name': record.course.course_name,
+            },
+            'date': record.check_in_time.date().isoformat(),
+            'time_in': record.check_in_time.time().isoformat(),
+            'time_out': record.check_out_time.time().isoformat() if record.check_out_time else None,
+            'status': record.status,
+            'created_at': record.created_at.isoformat(),
+        })
+    
+    return Response(record_data)
