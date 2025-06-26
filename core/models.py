@@ -9,6 +9,13 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 import json
+import uuid  # This was missing - causing the error!
+import numpy as np  # Needed for face recognition processing
+
+
+def generate_session_id():
+    """Generate a unique session ID using UUID4"""
+    return str(uuid.uuid4())
 
 # --------------------------
 # Custom Admin User Model
@@ -513,3 +520,192 @@ def update_attendance_rate_signal(sender, instance, created, **kwargs):
     """Update student attendance rate when attendance is recorded"""
     if created:
         instance.student.calculate_attendance_rate()
+class AttendanceSession(models.Model):
+    """Session-based attendance management for real-time attendance tracking"""
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Session Information - FIXED UUID default
+    session_id = models.CharField(max_length=100, unique=True, default=generate_session_id)
+    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='attendance_sessions')
+    teacher = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name='attendance_sessions')
+    
+    # Session Timing
+    start_time = models.DateTimeField(auto_now_add=True)
+    expected_end_time = models.DateTimeField(null=True, blank=True)
+    actual_end_time = models.DateTimeField(null=True, blank=True)
+    
+    # Session Configuration
+    session_duration_minutes = models.IntegerField(default=120)
+    grace_period_minutes = models.IntegerField(default=15)
+    
+    # Session Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    is_auto_closed = models.BooleanField(default=False)
+    
+    # Room/Location Info
+    room = models.CharField(max_length=100, blank=True)
+    location_notes = models.TextField(blank=True)
+    
+    # Statistics
+    total_students_expected = models.IntegerField(default=0)
+    present_count = models.IntegerField(default=0)
+    late_count = models.IntegerField(default=0)
+    absent_count = models.IntegerField(default=0)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-start_time']
+    
+    def __str__(self):
+        return f"Session {self.session_id} - {self.course.course_code} ({self.status})"
+    
+    def save(self, *args, **kwargs):
+        if not self.expected_end_time and self.start_time:
+            self.expected_end_time = self.start_time + timezone.timedelta(minutes=self.session_duration_minutes)
+        
+        if not self.total_students_expected:
+            self.total_students_expected = self.course.enrolled_students.filter(status='active').count()
+        
+        super().save(*args, **kwargs)
+    
+    def end_session(self, auto_closed=False):
+        """End the attendance session"""
+        self.status = 'completed'
+        self.actual_end_time = timezone.now()
+        self.is_auto_closed = auto_closed
+        self.save()
+        self.mark_remaining_as_absent()
+    
+    def mark_remaining_as_absent(self):
+        """Mark students who haven't checked in as absent"""
+        checked_in_students = self.session_checkins.values_list('student_id', flat=True)
+        enrolled_students = self.course.enrolled_students.filter(status='active').exclude(id__in=checked_in_students)
+        
+        for student in enrolled_students:
+            SessionCheckIn.objects.create(
+                session=self,
+                student=student,
+                status='absent',
+                check_in_time=self.actual_end_time or timezone.now(),
+                is_auto_generated=True
+            )
+        
+        self.update_statistics()
+    
+    def update_statistics(self):
+        """Update session statistics"""
+        checkins = self.session_checkins.all()
+        self.present_count = checkins.filter(status='present').count()
+        self.late_count = checkins.filter(status='present_late').count()
+        self.absent_count = checkins.filter(status='absent').count()
+        self.save(update_fields=['present_count', 'late_count', 'absent_count'])
+    
+    @property
+    def should_auto_close(self):
+        """Check if session should be auto-closed"""
+        if self.status != 'active':
+            return False
+        return timezone.now() >= self.expected_end_time
+
+
+class SessionCheckIn(models.Model):
+    """Individual student check-ins within an attendance session"""
+    
+    STATUS_CHOICES = [
+        ('present', 'Present'),
+        ('present_late', 'Present (Late)'),
+        ('absent', 'Absent'),
+    ]
+    
+    # Basic Information
+    session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='session_checkins')
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='session_checkins')
+    
+    # Check-in Details
+    check_in_time = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    
+    # Recognition Details
+    recognition_confidence = models.FloatField(null=True, blank=True)
+    recognition_model = models.CharField(max_length=20, default='cnn')
+    
+    # Additional Fields
+    is_auto_generated = models.BooleanField(default=False)  # For marking absent students
+    is_manual_override = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = [['session', 'student']]
+        ordering = ['-check_in_time']
+        indexes = [
+            models.Index(fields=['session', '-check_in_time']),
+            models.Index(fields=['student', '-check_in_time']),
+            models.Index(fields=['status', '-check_in_time']),
+        ]
+    
+    def __str__(self):
+        return f"{self.student.full_name} - {self.session.session_id} ({self.status})"
+    
+    def save(self, *args, **kwargs):
+        # Determine status based on timing if not set
+        if not self.status and not self.is_auto_generated:
+            session_start = self.session.start_time
+            grace_end = session_start + timezone.timedelta(minutes=self.session.grace_period_minutes)
+            session_end = self.session.expected_end_time
+            
+            if self.check_in_time <= grace_end:
+                self.status = 'present'
+            elif self.check_in_time <= session_end:
+                self.status = 'present_late'
+            else:
+                self.status = 'absent'
+        
+        super().save(*args, **kwargs)
+        
+        # Update session statistics
+        self.session.update_statistics()
+        
+        # Create traditional attendance record for backward compatibility
+        self.create_attendance_record()
+    
+    def create_attendance_record(self):
+        """Create a traditional AttendanceRecord for backward compatibility"""
+        from .models import AttendanceRecord
+        
+        # Map session status to traditional status
+        status_mapping = {
+            'present': 'present',
+            'present_late': 'late',
+            'absent': 'absent'
+        }
+        
+        attendance_status = status_mapping.get(self.status, 'present')
+        
+        # Check if record already exists
+        existing_record = AttendanceRecord.objects.filter(
+            student=self.student,
+            course=self.session.course,
+            attendance_date=self.check_in_time.date()
+        ).first()
+        
+        if not existing_record:
+            AttendanceRecord.objects.create(
+                student=self.student,
+                course=self.session.course,
+                status=attendance_status,
+                check_in_time=self.check_in_time,
+                attendance_date=self.check_in_time.date(),
+                recognition_model=self.recognition_model
+            )

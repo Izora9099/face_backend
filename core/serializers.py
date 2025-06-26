@@ -1,4 +1,7 @@
-# core/serializers.py
+# ===================================================================
+# FIXED core/serializers.py - Correct Order & Remove Duplicates
+# ===================================================================
+
 from rest_framework import serializers
 from .models import (
     SystemSettings, 
@@ -14,8 +17,11 @@ from .models import (
     UserActivity,
     LoginAttempt,
     ActiveSession,
-    SecuritySettings
+    SecuritySettings,
+    AttendanceSession, 
+    SessionCheckIn, 
 )
+from django.utils import timezone
 from django.contrib.auth.models import User
 
 # --------------------------
@@ -210,6 +216,92 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
 
 # Backward compatibility alias
 AttendanceSerializer = AttendanceRecordSerializer
+
+# --------------------------
+# Session Serializers (CORRECT ORDER)
+# --------------------------
+
+# Define AttendanceSessionSerializer FIRST
+class AttendanceSessionSerializer(serializers.ModelSerializer):
+    course_name = serializers.CharField(source='course.course_name', read_only=True)
+    course_code = serializers.CharField(source='course.course_code', read_only=True)
+    teacher_name = serializers.CharField(source='teacher.get_full_name', read_only=True)
+    attendance_rate = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AttendanceSession
+        fields = [
+            'id', 'session_id', 'course', 'course_name', 'course_code',
+            'teacher', 'teacher_name', 'start_time', 'expected_end_time',
+            'actual_end_time', 'session_duration_minutes', 'grace_period_minutes',
+            'status', 'room', 'total_students_expected', 'present_count',
+            'late_count', 'absent_count', 'attendance_rate', 'created_at'
+        ]
+        read_only_fields = [
+            'id', 'session_id', 'start_time', 'present_count',
+            'late_count', 'absent_count', 'created_at'
+        ]
+    
+    def get_attendance_rate(self, obj):
+        if obj.total_students_expected > 0:
+            return round((obj.present_count + obj.late_count) / obj.total_students_expected * 100, 2)
+        return 0.0
+
+
+class SessionCheckInSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.full_name', read_only=True)
+    student_matric = serializers.CharField(source='student.matric_number', read_only=True)
+    
+    class Meta:
+        model = SessionCheckIn
+        fields = [
+            'id', 'student', 'student_name', 'student_matric',
+            'check_in_time', 'status', 'recognition_confidence',
+            'is_manual_override', 'notes', 'created_at'
+        ]
+        read_only_fields = ['id', 'check_in_time', 'created_at']
+
+
+class SessionStatsSerializer(serializers.ModelSerializer):
+    recent_checkins = SessionCheckInSerializer(source='session_checkins', many=True, read_only=True)
+    attendance_rate = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AttendanceSession  # FIXED: Was SessionCheckIn, should be AttendanceSession
+        fields = [
+            'id', 'session_id', 'status', 'total_students_expected',
+            'present_count', 'late_count', 'absent_count',
+            'attendance_rate', 'time_remaining', 'recent_checkins'
+        ]
+    
+    def get_attendance_rate(self, obj):
+        if obj.total_students_expected > 0:
+            return round((obj.present_count + obj.late_count) / obj.total_students_expected * 100, 2)
+        return 0.0
+    
+    def get_time_remaining(self, obj):
+        if obj.status == 'active':
+            remaining = (obj.expected_end_time - timezone.now()).total_seconds()
+            return max(0, int(remaining))
+        return 0
+
+
+# Response models for Android app (NOW AttendanceSessionSerializer is defined)
+class SessionResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    session_id = serializers.CharField(required=False)
+    session = AttendanceSessionSerializer(required=False)  # This now works!
+
+
+class AttendanceResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    student_name = serializers.CharField(required=False)
+    status = serializers.CharField(required=False)
+    check_in_time = serializers.DateTimeField(required=False)
+
 
 # --------------------------
 # System Management Serializers

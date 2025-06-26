@@ -118,4 +118,10 @@ urlpatterns += [
     
     # Attendance detail endpoints
     path('attendance/<int:pk>/', attendance_detail, name='attendance-detail'),
+
+     # Session Management Endpoints (matches Android app expectations)
+    path('sessions/start/', views.start_attendance_session, name='start_attendance_session'),
+    path('sessions/end/', views.end_attendance_session, name='end_attendance_session'),
+    path('attendance/checkin/', views.session_based_attendance, name='session_based_attendance'),
+    path('sessions/<str:session_id>/stats/', views.get_session_stats, name='get_session_stats'),
 ]

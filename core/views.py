@@ -18,8 +18,9 @@ from .models import (
     Student, AttendanceRecord, Attendance, AdminUser, 
     UserActivity, LoginAttempt, ActiveSession, SecuritySettings,
     SystemSettings, SystemBackup, Department, Specialization, 
-    Level, Course
+    Level, Course, AttendanceSession, SessionCheckIn  # ADD THESE TWO
 )
+
 from .serializers import (
     SystemSettingsSerializer, SystemSettingsUpdateSerializer, 
     SystemStatsSerializer, SystemBackupSerializer,
@@ -30,7 +31,9 @@ from .serializers import (
     CourseSerializer, CourseListSerializer, UserActivitySerializer,
     LoginAttemptSerializer, ActiveSessionSerializer, SecuritySettingsSerializer,
     DepartmentStatsSerializer, CourseStatsSerializer, TeacherStatsSerializer,
-    StudentEnrollmentSerializer, BulkEnrollmentSerializer
+    StudentEnrollmentSerializer, BulkEnrollmentSerializer,
+    # ADD THESE SESSION SERIALIZERS:
+    AttendanceSessionSerializer, SessionCheckInSerializer, SessionStatsSerializer
 )
 
 import numpy as np
@@ -56,7 +59,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
-
 # Get the User model
 User = get_user_model()
 
@@ -1057,3 +1059,299 @@ def get_attendance_records(request):
         })
     
     return Response(record_data)
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def start_attendance_session(request):
+    """Start a new attendance session"""
+    try:
+        course_id = request.data.get('course_id')
+        teacher_id = request.data.get('teacher_id')
+        
+        if not course_id:
+            return Response({
+                'success': False,
+                'message': 'Course ID is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get course and validate teacher access
+        course = get_object_or_404(Course, id=course_id, status='active')
+        
+        # Check if teacher has access to this course
+        if hasattr(request.user, 'role') and request.user.role == 'teacher':
+            if not course.teachers.filter(id=request.user.id).exists():
+                return Response({
+                    'success': False,
+                    'message': 'Access denied to this course'
+                }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if there's already an active session for this course
+        existing_session = AttendanceSession.objects.filter(
+            course=course,
+            status='active'
+        ).first()
+        
+        if existing_session:
+            return Response({
+                'success': False,
+                'message': 'An active session already exists for this course',
+                'session_id': existing_session.session_id
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create new session
+        session = AttendanceSession.objects.create(
+            course=course,
+            teacher=request.user,
+            session_duration_minutes=request.data.get('duration_minutes', 120),
+            grace_period_minutes=request.data.get('grace_period_minutes', 15),
+            room=request.data.get('room', ''),
+        )
+        
+        # Log activity
+        log_user_activity(
+            request.user, 'MARK_ATTENDANCE', 'sessions',
+            f"Started attendance session for {course.course_code}",
+            request
+        )
+        
+        serializer = AttendanceSessionSerializer(session)
+        
+        return Response({
+            'success': True,
+            'message': f'Attendance session started for {course.course_code}',
+            'session_id': session.session_id,
+            'session': serializer.data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Failed to start session: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def end_attendance_session(request):
+    """End an active attendance session"""
+    try:
+        session_id = request.data.get('session_id')
+        
+        if not session_id:
+            return Response({
+                'success': False,
+                'message': 'Session ID is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get session
+        session = get_object_or_404(AttendanceSession, session_id=session_id)
+        
+        # Check teacher access
+        if hasattr(request.user, 'role') and request.user.role == 'teacher':
+            if session.teacher != request.user:
+                return Response({
+                    'success': False,
+                    'message': 'Access denied to this session'
+                }, status=status.HTTP_403_FORBIDDEN)
+        
+        if session.status != 'active':
+            return Response({
+                'success': False,
+                'message': f'Session is already {session.status}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # End the session
+        session.end_session(auto_closed=False)
+        
+        # Log activity
+        log_user_activity(
+            request.user, 'MARK_ATTENDANCE', 'sessions',
+            f"Ended attendance session for {session.course.course_code}",
+            request
+        )
+        
+        serializer = AttendanceSessionSerializer(session)
+        
+        return Response({
+            'success': True,
+            'message': f'Session ended for {session.course.course_code}',
+            'session': serializer.data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Failed to end session: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+def session_based_attendance(request):
+    """Record attendance within an active session using face recognition"""
+    try:
+        session_id = request.data.get('session_id')
+        status_override = request.data.get('status')  # Optional status override
+        image_file = request.FILES.get('image')
+        
+        if not session_id:
+            return Response({
+                'success': False,
+                'message': 'Session ID is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not image_file:
+            return Response({
+                'success': False,
+                'message': 'Face image is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get active session
+        session = get_object_or_404(AttendanceSession, session_id=session_id, status='active')
+        
+        # Process face image (reuse existing face recognition logic)
+        from . import face_utils
+        
+        image = face_utils.preprocess_image(image_file)
+        if image is None:
+            return Response({
+                'success': False,
+                'message': 'Failed to process image'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Extract face encoding
+        import face_recognition
+        face_encodings = face_recognition.face_encodings(image)
+        if not face_encodings:
+            return Response({
+                'success': False,
+                'message': 'No face detected in image'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        face_encoding = face_encodings[0]
+        
+        # Find matching student in enrolled students
+        enrolled_students = session.course.enrolled_students.filter(status='active')
+        best_match = None
+        best_distance = float('inf')
+        
+        for student in enrolled_students:
+            if student.face_encoding:
+                try:
+                    stored_encoding = np.frombuffer(student.face_encoding, dtype=np.float64)
+                    distance = face_recognition.face_distance([stored_encoding], face_encoding)[0]
+                    
+                    if distance < 0.6 and distance < best_distance:  # Threshold for recognition
+                        best_match = student
+                        best_distance = distance
+                except Exception:
+                    continue
+        
+        if not best_match:
+            return Response({
+                'success': False,
+                'message': 'Student not recognized or not enrolled in this course'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if student already checked in
+        existing_checkin = SessionCheckIn.objects.filter(
+            session=session,
+            student=best_match
+        ).first()
+        
+        if existing_checkin:
+            return Response({
+                'success': False,
+                'message': f'{best_match.full_name} has already checked in for this session'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Determine attendance status
+        current_time = timezone.now()
+        
+        if status_override:
+            attendance_status = status_override
+        else:
+            # Auto-determine based on timing
+            grace_end = session.start_time + timezone.timedelta(minutes=session.grace_period_minutes)
+            session_end = session.expected_end_time
+            
+            if current_time <= grace_end:
+                attendance_status = 'present'
+            elif current_time <= session_end:
+                attendance_status = 'present_late'
+            else:
+                attendance_status = 'absent'  # Late check-in after session
+        
+        # Create check-in record
+        checkin = SessionCheckIn.objects.create(
+            session=session,
+            student=best_match,
+            status=attendance_status,
+            recognition_confidence=1.0 - best_distance,
+            check_in_time=current_time
+        )
+        
+        # Log activity
+        log_user_activity(
+            request.user if request.user.is_authenticated else session.teacher,
+            'MARK_ATTENDANCE', 'attendance',
+            f"Session check-in: {best_match.full_name} - {attendance_status}",
+            request
+        )
+        
+        return Response({
+            'success': True,
+            'message': f'{best_match.full_name} checked in successfully',
+            'student_name': best_match.full_name,
+            'status': attendance_status,
+            'check_in_time': current_time
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Check-in failed: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_session_stats(request, session_id):
+    """Get real-time statistics for an attendance session"""
+    try:
+        session = get_object_or_404(AttendanceSession, session_id=session_id)
+        
+        # Check teacher access
+        if hasattr(request.user, 'role') and request.user.role == 'teacher':
+            if session.teacher != request.user:
+                return Response({
+                    'success': False,
+                    'message': 'Access denied to this session'
+                }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get recent check-ins (last 10)
+        recent_checkins = session.session_checkins.order_by('-check_in_time')[:10]
+        
+        # Calculate time remaining
+        time_remaining = 0
+        if session.status == 'active':
+            remaining_seconds = (session.expected_end_time - timezone.now()).total_seconds()
+            time_remaining = max(0, int(remaining_seconds))
+        
+        # Auto-close session if needed
+        if session.should_auto_close and session.status == 'active':
+            session.end_session(auto_closed=True)
+        
+        serializer = SessionStatsSerializer(session)
+        
+        return Response({
+            'success': True,
+            'stats': serializer.data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Failed to get session stats: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
