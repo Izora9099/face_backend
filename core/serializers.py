@@ -24,6 +24,8 @@ from .models import (
 from django.utils import timezone
 from django.contrib.auth.models import User
 
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 # --------------------------
 # Academic Structure Serializers
 # --------------------------
@@ -446,3 +448,29 @@ class BulkEnrollmentSerializer(serializers.Serializer):
                 "At least one of department, specialization, or level must be specified."
             )
         return data
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Custom JWT serializer that includes user data in the token payload"""
+    
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        
+        # Add custom claims with user data
+        token['username'] = user.username
+        token['email'] = user.email
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
+        token['phone'] = getattr(user, 'phone', '')
+        token['role'] = getattr(user, 'role', 'staff')
+        token['permissions'] = getattr(user, 'permissions', [])
+        token['is_staff'] = user.is_staff
+        token['is_superuser'] = user.is_superuser
+        token['is_active'] = user.is_active
+        token['last_login'] = user.last_login.isoformat() if user.last_login else ''
+        token['date_joined'] = user.date_joined.isoformat() if user.date_joined else ''
+        
+        return token
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """Custom JWT view that uses our custom serializer"""
+    serializer_class = CustomTokenObtainPairSerializer

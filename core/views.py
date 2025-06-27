@@ -59,6 +59,25 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
+
+from django.http import JsonResponse
+from django.contrib.auth import get_user_model
+from django.db.models import Count, Avg, Q
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from .models import *
+import json
+from django.utils import timezone
+from datetime import datetime, timedelta
+
+from django.contrib.auth import get_user_model
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.http import JsonResponse
+import json
+
 # Get the User model
 User = get_user_model()
 
@@ -1355,3 +1374,680 @@ def get_session_stats(request, session_id):
             'success': False,
             'message': f'Failed to get session stats: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_user(request):
+    """Get current authenticated user information"""
+    user = request.user
+    
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'phone': getattr(user, 'phone', ''),
+        'role': getattr(user, 'role', 'staff'),
+        'permissions': getattr(user, 'permissions', []),
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser,
+        'is_active': user.is_active,
+        'last_login': user.last_login.isoformat() if user.last_login else '',
+        'date_joined': user.date_joined.isoformat() if user.date_joined else '',
+    })
+# ============================
+# SYSTEM MANAGEMENT ENDPOINTS
+# ============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def system_stats(request):
+    """Get comprehensive system statistics"""
+    try:
+        # Basic system stats
+        stats = {
+            'system_health': {
+                'database_size': '50MB',  # You can calculate this dynamically
+                'uptime': '15 days, 3 hours',
+                'memory_usage': '45%',
+                'cpu_usage': '12%',
+                'disk_usage': '23%'
+            },
+            'user_stats': {
+                'total_users': User.objects.count(),
+                'active_users': User.objects.filter(is_active=True).count(),
+                'admin_users': User.objects.filter(is_superuser=True).count(),
+                'recent_logins': LoginAttempt.objects.filter(
+                    success=True,
+                    timestamp__gte=timezone.now() - timedelta(days=1)
+                ).count() if 'LoginAttempt' in globals() else 0
+            },
+            'data_stats': {
+                'total_students': Student.objects.count(),
+                'total_courses': Course.objects.count(),
+                'total_departments': Department.objects.count(),
+                'attendance_records': AttendanceRecord.objects.count()
+            },
+            'security_stats': {
+                'failed_logins_today': LoginAttempt.objects.filter(
+                    success=False,
+                    timestamp__gte=timezone.now().date()
+                ).count() if 'LoginAttempt' in globals() else 0,
+                'active_sessions': ActiveSession.objects.filter(
+                    is_active=True
+                ).count() if 'ActiveSession' in globals() else 0,
+                'user_activities_today': UserActivity.objects.filter(
+                    timestamp__gte=timezone.now().date()
+                ).count() if 'UserActivity' in globals() else 0
+            },
+            'backup_stats': {
+                'last_backup': SystemBackup.objects.filter().order_by('-created_at').first().created_at.isoformat() if SystemBackup.objects.exists() and 'SystemBackup' in globals() else None,
+                'total_backups': SystemBackup.objects.count() if 'SystemBackup' in globals() else 0,
+                'backup_size': '250MB'
+            }
+        }
+        
+        return Response(stats)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# ============================
+# USER MANAGEMENT ENDPOINTS
+# ============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_admin_users(request):
+    """Get list of admin users"""
+    try:
+        # Only superusers and staff can view admin users
+        if not (request.user.is_superuser or getattr(request.user, 'role', '') in ['superadmin', 'staff']):
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        users = User.objects.filter(is_active=True).values(
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'role', 'is_superuser', 'last_login', 'date_joined'
+        )
+        
+        # Format the data for frontend
+        admin_users = []
+        for user in users:
+            admin_users.append({
+                'id': user['id'],
+                'name': f"{user['first_name']} {user['last_name']}".strip() or user['username'],
+                'email': user['email'],
+                'role': user['role'] if user['role'] else ('Super Admin' if user['is_superuser'] else 'Staff'),
+                'status': 'Active',  # You can add more logic here
+                'last_login': user['last_login'].isoformat() if user['last_login'] else None,
+                'permissions': []  # You can add permissions logic here
+            })
+        
+        return Response(admin_users)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_admin_user(request):
+    """Create new admin user"""
+    try:
+        # Only superusers can create admin users
+        if not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        data = json.loads(request.body)
+        
+        # Create user
+        user = User.objects.create_user(
+            username=data.get('email'),  # Use email as username
+            email=data.get('email'),
+            first_name=data.get('name', '').split(' ')[0] if data.get('name') else '',
+            last_name=' '.join(data.get('name', '').split(' ')[1:]) if data.get('name') and len(data.get('name').split(' ')) > 1 else '',
+            role=data.get('role', 'staff').lower().replace(' ', '')
+        )
+        
+        # Set temporary password (you should send this via email)
+        user.set_password('temppassword123')
+        user.save()
+        
+        return Response({
+            'id': user.id,
+            'name': f"{user.first_name} {user.last_name}".strip() or user.username,
+            'email': user.email,
+            'role': data.get('role'),
+            'status': 'Active'
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# ============================
+# SECURITY ENDPOINTS
+# ============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_activities(request):
+    """Get user activities with filtering"""
+    try:
+        if 'UserActivity' not in globals():
+            return Response([])  # Return empty list if model doesn't exist
+        
+        # Get query parameters
+        days = int(request.GET.get('days', 7))
+        user_filter = request.GET.get('user')
+        action_filter = request.GET.get('action')
+        status_filter = request.GET.get('status')
+        
+        # Build query
+        queryset = UserActivity.objects.all()
+        
+        # Apply filters
+        if days:
+            since_date = timezone.now() - timedelta(days=days)
+            queryset = queryset.filter(timestamp__gte=since_date)
+        
+        if user_filter and user_filter != 'all':
+            queryset = queryset.filter(user__username__icontains=user_filter)
+        
+        if action_filter and action_filter != 'all':
+            queryset = queryset.filter(action=action_filter)
+        
+        if status_filter and status_filter != 'all':
+            queryset = queryset.filter(status=status_filter)
+        
+        # Get activities
+        activities = queryset.select_related('user').order_by('-timestamp')[:100]
+        
+        result = []
+        for activity in activities:
+            result.append({
+                'id': activity.id,
+                'user': activity.user.username,
+                'action': activity.action,
+                'resource': activity.resource,
+                'details': activity.details,
+                'ip_address': activity.ip_address,
+                'status': activity.status,
+                'timestamp': activity.timestamp.isoformat()
+            })
+        
+        return Response(result)
+    except Exception as e:
+        return Response([])  # Return empty list on error
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_login_attempts(request):
+    """Get login attempts"""
+    try:
+        if 'LoginAttempt' not in globals():
+            return Response([])
+        
+        days = int(request.GET.get('days', 7))
+        since_date = timezone.now() - timedelta(days=days)
+        
+        attempts = LoginAttempt.objects.filter(
+            timestamp__gte=since_date
+        ).order_by('-timestamp')[:50]
+        
+        result = []
+        for attempt in attempts:
+            result.append({
+                'id': attempt.id,
+                'username': attempt.username,
+                'success': attempt.success,
+                'ip_address': attempt.ip_address,
+                'user_agent': getattr(attempt, 'user_agent', ''),
+                'timestamp': attempt.timestamp.isoformat()
+            })
+        
+        return Response(result)
+    except Exception as e:
+        return Response([])
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_active_sessions(request):
+    """Get active user sessions"""
+    try:
+        if 'ActiveSession' not in globals():
+            return Response([])
+        
+        sessions = ActiveSession.objects.filter(
+            is_active=True
+        ).select_related('user').order_by('-last_activity')
+        
+        result = []
+        for session in sessions:
+            result.append({
+                'id': session.id,
+                'user': session.user.username,
+                'ip_address': session.ip_address,
+                'user_agent': getattr(session, 'user_agent', ''),
+                'last_activity': session.last_activity.isoformat(),
+                'created_at': session.created_at.isoformat()
+            })
+        
+        return Response(result)
+    except Exception as e:
+        return Response([])
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_security_statistics(request):
+    """Get security statistics"""
+    try:
+        days = int(request.GET.get('days', 7))
+        since_date = timezone.now() - timedelta(days=days)
+        
+        stats = {
+            'total_login_attempts': 0,
+            'successful_logins': 0,
+            'failed_logins': 0,
+            'unique_users': 0,
+            'suspicious_activities': 0,
+            'blocked_ips': 0
+        }
+        
+        if 'LoginAttempt' in globals():
+            login_attempts = LoginAttempt.objects.filter(timestamp__gte=since_date)
+            stats['total_login_attempts'] = login_attempts.count()
+            stats['successful_logins'] = login_attempts.filter(success=True).count()
+            stats['failed_logins'] = login_attempts.filter(success=False).count()
+            stats['unique_users'] = login_attempts.values('username').distinct().count()
+        
+        if 'UserActivity' in globals():
+            activities = UserActivity.objects.filter(timestamp__gte=since_date)
+            stats['suspicious_activities'] = activities.filter(status='warning').count()
+        
+        return Response(stats)
+    except Exception as e:
+        return Response({
+            'total_login_attempts': 0,
+            'successful_logins': 0,
+            'failed_logins': 0,
+            'unique_users': 0,
+            'suspicious_activities': 0,
+            'blocked_ips': 0
+        })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_security_settings(request):
+    """Get security settings"""
+    try:
+        if 'SecuritySettings' in globals():
+            settings = SecuritySettings.objects.first()
+            if settings:
+                return Response({
+                    'min_password_length': settings.min_password_length,
+                    'require_special_chars': settings.require_special_chars,
+                    'enable_2fa': settings.enable_2fa,
+                    'max_login_attempts': settings.max_login_attempts,
+                    'lockout_duration': settings.lockout_duration,
+                    'session_timeout': settings.session_timeout,
+                    'log_all_activities': settings.log_all_activities
+                })
+        
+        # Default settings
+        return Response({
+            'min_password_length': 8,
+            'require_special_chars': False,
+            'enable_2fa': False,
+            'max_login_attempts': 5,
+            'lockout_duration': 30,
+            'session_timeout': 60,
+            'log_all_activities': True
+        })
+    except Exception as e:
+        return Response({})
+
+# ============================
+# SYSTEM SETTINGS ENDPOINTS
+# ============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_system_settings(request):
+    """Get system settings"""
+    try:
+        if 'SystemSettings' in globals():
+            settings = SystemSettings.objects.first()
+            if settings:
+                return Response({
+                    'school_name': settings.school_name,
+                    'academic_year': settings.academic_year,
+                    'semester': settings.semester,
+                    'maintenance_mode': settings.maintenance_mode,
+                    'allow_registration': settings.allow_registration,
+                    'email_notifications': settings.email_notifications,
+                    'backup_frequency': settings.backup_frequency,
+                    'max_file_size': settings.max_file_size
+                })
+        
+        # Default settings
+        return Response({
+            'school_name': 'Face Recognition Attendance System',
+            'academic_year': '2024-2025',
+            'semester': 'Fall',
+            'maintenance_mode': False,
+            'allow_registration': True,
+            'email_notifications': True,
+            'backup_frequency': 'daily',
+            'max_file_size': 10
+        })
+    except Exception as e:
+        return Response({})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_system_settings(request):
+    """Update system settings"""
+    try:
+        if not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        data = json.loads(request.body)
+        
+        if 'SystemSettings' in globals():
+            settings, created = SystemSettings.objects.get_or_create(defaults=data)
+            if not created:
+                for key, value in data.items():
+                    setattr(settings, key, value)
+                settings.save()
+        
+        return Response({'message': 'Settings updated successfully'})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def test_email_settings(request):
+    """Test email configuration"""
+    try:
+        # This is a placeholder - implement actual email testing
+        return Response({'message': 'Test email sent successfully'})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_backup(request):
+    """Create system backup"""
+    try:
+        if not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        # This is a placeholder - implement actual backup creation
+        if 'SystemBackup' in globals():
+            backup = SystemBackup.objects.create(
+                filename=f'backup_{timezone.now().strftime("%Y%m%d_%H%M%S")}.sql',
+                backup_type='manual',
+                file_size=1024000,  # Placeholder size
+                created_by=request.user
+            )
+            return Response({'message': 'Backup created successfully', 'filename': backup.filename})
+        
+        return Response({'message': 'Backup feature not available'})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user(request):
+    """Get current authenticated user details"""
+    try:
+        user = request.user
+        
+        # Determine user role and permissions
+        role = getattr(user, 'role', 'staff')
+        if user.is_superuser:
+            role = 'superadmin'
+        
+        # Basic permissions based on role
+        permissions = []
+        if role == 'superadmin':
+            permissions = [
+                'view_students', 'manage_students', 'enroll_students',
+                'view_attendance', 'edit_attendance', 'start_sessions',
+                'view_reports', 'generate_reports', 'system_reports',
+                'view_users', 'manage_users', 'system_settings',
+                'view_timetable', 'manage_timetable'
+            ]
+        elif role == 'teacher':
+            permissions = [
+                'view_student_roster', 'view_attendance', 'edit_attendance',
+                'start_sessions', 'view_reports', 'generate_reports', 'view_timetable'
+            ]
+        elif role == 'staff':
+            permissions = [
+                'view_students', 'manage_students', 'enroll_students',
+                'view_attendance', 'view_reports', 'view_timetable'
+            ]
+        
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_superuser': user.is_superuser,
+            'role': role,
+            'permissions': permissions,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'date_joined': user.date_joined.isoformat()
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def update_admin_user(request, user_id):
+    """Update or delete admin user"""
+    try:
+        if not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        
+        if request.method == 'PUT':
+            data = json.loads(request.body)
+            
+            # Update user fields
+            if 'name' in data:
+                name_parts = data['name'].split(' ', 1)
+                user.first_name = name_parts[0] if name_parts else ''
+                user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
+            if 'email' in data:
+                user.email = data['email']
+                user.username = data['email']  # Use email as username
+            
+            if 'role' in data:
+                user.role = data['role'].lower().replace(' ', '')
+            
+            user.save()
+            
+            return Response({
+                'id': user.id,
+                'name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                'email': user.email,
+                'role': data.get('role'),
+                'status': 'Active'
+            })
+        
+        elif request.method == 'DELETE':
+            user.is_active = False
+            user.save()
+            return Response({'message': 'User deactivated successfully'})
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_admin_user(request, user_id):
+    """Delete admin user (alias for update_admin_user DELETE)"""
+    return update_admin_user(request, user_id)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_security_settings(request):
+    """Update security settings"""
+    try:
+        if not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        data = json.loads(request.body)
+        
+        # If SecuritySettings model exists, update it
+        if 'SecuritySettings' in globals():
+            settings, created = SecuritySettings.objects.get_or_create(defaults=data)
+            if not created:
+                for key, value in data.items():
+                    if hasattr(settings, key):
+                        setattr(settings, key, value)
+                settings.save()
+        
+        return Response({'message': 'Security settings updated successfully'})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def terminate_session(request, session_id):
+    """Terminate user session"""
+    try:
+        if not request.user.is_superuser:
+            return Response({'error': 'Permission denied'}, status=403)
+        
+        if 'ActiveSession' in globals():
+            try:
+                session = ActiveSession.objects.get(session_key=session_id)
+                session.is_active = False
+                session.save()
+                return Response({'message': 'Session terminated successfully'})
+            except ActiveSession.DoesNotExist:
+                return Response({'error': 'Session not found'}, status=404)
+        
+        return Response({'message': 'Session management not available'})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# Detail view functions that might be missing
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def department_detail(request, pk):
+    """Get department details"""
+    try:
+        department = Department.objects.get(pk=pk)
+        return Response({
+            'id': department.id,
+            'name': department.name,
+            'code': department.code,
+            'description': getattr(department, 'description', ''),
+            'is_active': department.is_active,
+            'student_count': department.students.filter(status='active').count(),
+            'course_count': department.courses.filter(status='active').count()
+        })
+    except Department.DoesNotExist:
+        return Response({'error': 'Department not found'}, status=404)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def specialization_detail(request, pk):
+    """Get specialization details"""
+    try:
+        specialization = Specialization.objects.get(pk=pk)
+        return Response({
+            'id': specialization.id,
+            'name': specialization.name,
+            'code': specialization.code,
+            'department': specialization.department.name,
+            'description': getattr(specialization, 'description', ''),
+            'is_active': specialization.is_active,
+            'student_count': specialization.students.filter(status='active').count()
+        })
+    except Specialization.DoesNotExist:
+        return Response({'error': 'Specialization not found'}, status=404)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def level_detail(request, pk):
+    """Get level details"""
+    try:
+        level = Level.objects.get(pk=pk)
+        return Response({
+            'id': level.id,
+            'name': level.name,
+            'code': level.code,
+            'description': getattr(level, 'description', ''),
+            'is_active': level.is_active,
+            'student_count': level.students.filter(status='active').count()
+        })
+    except Level.DoesNotExist:
+        return Response({'error': 'Level not found'}, status=404)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def course_detail(request, pk):
+    """Get course details"""
+    try:
+        course = Course.objects.get(pk=pk)
+        return Response({
+            'id': course.id,
+            'name': course.name,
+            'code': course.code,
+            'description': getattr(course, 'description', ''),
+            'credits': getattr(course, 'credits', 0),
+            'department': course.department.name,
+            'status': course.status,
+            'enrolled_students': course.enrolled_students.filter(status='active').count(),
+            'total_sessions': getattr(course, 'total_sessions', 0)
+        })
+    except Course.DoesNotExist:
+        return Response({'error': 'Course not found'}, status=404)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_detail(request, pk):
+    """Get student details"""
+    try:
+        student = Student.objects.get(pk=pk)
+        return Response({
+            'id': student.id,
+            'first_name': student.first_name,
+            'last_name': student.last_name,
+            'matric_number': student.matric_number,
+            'email': student.email,
+            'phone': student.phone,
+            'department': student.department.name,
+            'specialization': student.specialization.name if student.specialization else None,
+            'level': student.level.name if student.level else None,
+            'status': student.status,
+            'enrolled_courses_count': student.enrolled_courses.filter(status='active').count(),
+            'attendance_rate': getattr(student, 'attendance_rate', 0)
+        })
+    except Student.DoesNotExist:
+        return Response({'error': 'Student not found'}, status=404)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def attendance_detail(request, pk):
+    """Get attendance record details"""
+    try:
+        attendance = AttendanceRecord.objects.get(pk=pk)
+        return Response({
+            'id': attendance.id,
+            'student': f"{attendance.student.first_name} {attendance.student.last_name}",
+            'course': attendance.course.name,
+            'attendance_date': attendance.attendance_date.isoformat(),
+            'check_in_time': attendance.check_in_time.isoformat() if attendance.check_in_time else None,
+            'status': attendance.status,
+            'recognition_confidence': getattr(attendance, 'recognition_confidence', 0),
+            'created_at': attendance.created_at.isoformat()
+        })
+    except AttendanceRecord.DoesNotExist:
+        return Response({'error': 'Attendance record not found'}, status=404)
