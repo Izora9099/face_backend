@@ -82,39 +82,19 @@ class CourseListSerializer(serializers.ModelSerializer):
 class AdminUserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     taught_courses = CourseListSerializer(many=True, read_only=True)
+    department_name = serializers.CharField(source='department.department_name', read_only=True)
+    specialization_name = serializers.CharField(source='specialization.specialization_name', read_only=True)
     
     class Meta:
         model = AdminUser
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name', 
-                 'phone', 'role', 'permissions', 'is_active', 'is_superuser', 
-                 'last_login', 'date_joined', 'taught_courses']
-        read_only_fields = ['last_login', 'date_joined']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
-    
-    def get_full_name(self, obj):
-        return f"{obj.first_name} {obj.last_name}".strip()
-    
-    def create(self, validated_data):
-        password = validated_data.pop('password', None)
-        user = AdminUser.objects.create(**validated_data)
-        if password:
-            user.set_password(password)
-            user.save()
-        return user
-    
-    def update(self, instance, validated_data):
-        password = validated_data.pop('password', None)
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        
-        if password:
-            instance.set_password(password)
-        
-        instance.save()
-        return instance
-
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'full_name', 
+            'phone', 'role', 'permissions', 'is_active', 'is_superuser', 
+            'last_login', 'date_joined', 'taught_courses',
+            'department', 'department_name', 'specialization', 'specialization_name', 
+            'employee_id', 'job_title', 'hire_date', 'is_department_head'
+        ]
+        read_only_fields = ['last_login', 'date_joined', 'full_name', 'employee_id']
 class StudentSerializer(serializers.ModelSerializer):
     full_name = serializers.ReadOnlyField()
     department_name = serializers.CharField(source='department.department_name', read_only=True)

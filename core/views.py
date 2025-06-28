@@ -96,12 +96,14 @@ def check_teacher_course_access(user, course):
         return course in user.taught_courses.all()
     return user.role in ['superadmin', 'staff']
 
-def log_user_activity(user, action, resource, details, request, status='success'):
-    """Log user activity"""
+
+def log_user_activity(user, action, resource, details, request, resource_id=None, status='success'):
+    """Log user activity - FIXED to accept resource_id parameter"""
     UserActivity.objects.create(
         user=user,
         action=action,
         resource=resource,
+        resource_id=resource_id,  # Add this line
         details=details,
         ip_address=request.META.get('REMOTE_ADDR', ''),
         user_agent=request.META.get('HTTP_USER_AGENT', ''),

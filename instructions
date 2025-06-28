@@ -1,7 +1,7 @@
 to enter the virtual environment....
 -> Source faceenv/bin/activate
 to start python server
--> python manage.py runserver
+-> python manage.py runserver,
 
 #core/your_scipt.py is a test file for detection with MTCNN. run it after changing the image to see if MTCNN normally works on the image
 

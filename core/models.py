@@ -8,6 +8,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 import json
 import uuid  # This was missing - causing the error!
 import numpy as np  # Needed for face recognition processing
@@ -18,7 +19,7 @@ def generate_session_id():
     return str(uuid.uuid4())
 
 # --------------------------
-# Custom Admin User Model
+# Custom Admin User Model (UPDATED)
 # --------------------------
 class AdminUser(AbstractUser):
     phone = models.CharField(max_length=20, blank=True)
@@ -31,14 +32,112 @@ class AdminUser(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
     permissions = models.JSONField(default=list)
     
+    # NEW FIELDS FOR TEACHER MANAGEMENT
+    department = models.ForeignKey(
+        'Department',  # Use string reference since Department is defined later
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='staff_members',
+        help_text="Primary department (mainly for teachers and department staff)"
+    )
+    
+    specialization = models.ForeignKey(
+        'Specialization',  # Use string reference
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='specialists',
+        help_text="Area of specialization (mainly for teachers)"
+    )
+    
+    employee_id = models.CharField(
+        max_length=50, 
+        unique=True, 
+        null=True, 
+        blank=True,
+        help_text="Auto-generated employee ID"
+    )
+    
+    # Additional fields for better organization
+    job_title = models.CharField(
+        max_length=100, 
+        blank=True,
+        help_text="Specific job title (e.g., 'Senior Lecturer', 'IT Administrator')"
+    )
+    
+    hire_date = models.DateField(null=True, blank=True)
+    
+    is_department_head = models.BooleanField(
+        default=False,
+        help_text="Is this person the head of their department?"
+    )
+    
     def save(self, *args, **kwargs):
         # Auto-generate username from first and last name if not provided
         if not self.username and self.first_name and self.last_name:
             self.username = f"{self.first_name} {self.last_name}"
+        
+        # Auto-generate employee_id if not provided
+        if not self.employee_id:
+            # This will be set after save when we have an ID
+            super().save(*args, **kwargs)
+            if not self.employee_id:
+                self.employee_id = self._generate_employee_id()
+                super().save(update_fields=['employee_id'])
+            return
+            
         super().save(*args, **kwargs)
+    
+    def _generate_employee_id(self):
+        """Generate employee ID based on role"""
+        role_prefixes = {
+            'superadmin': 'SA',
+            'staff': 'STF',
+            'teacher': 'TCH'
+        }
+        prefix = role_prefixes.get(self.role, 'EMP')
+        return f"{prefix}{self.id:04d}"
+    
+    @property
+    def requires_department(self):
+        """Check if this role typically requires a department"""
+        return self.role in ['teacher']
+    
+    @property
+    def can_have_specialization(self):
+        """Check if this role can have a specialization"""
+        return self.role in ['teacher', 'staff']
+    
+    @property
+    def full_name(self):
+        """Get full name"""
+        return f"{self.first_name} {self.last_name}".strip()
+    
+    def clean(self):
+        """Custom validation"""
+        # Validate department head logic
+        if self.is_department_head and not self.department:
+            raise ValidationError("Department heads must be assigned to a department.")
+        
+        # Check for multiple department heads
+        if self.is_department_head and self.department:
+            existing_head = AdminUser.objects.filter(
+                department=self.department, 
+                is_department_head=True
+            ).exclude(pk=self.pk).first()
+            
+            if existing_head:
+                raise ValidationError(
+                    f"Department {self.department.department_name} already has a head: {existing_head.full_name}"
+                )
 
     def __str__(self):
         return self.username or f"{self.first_name} {self.last_name}"
+    
+    class Meta:
+        verbose_name = "Admin User"
+        verbose_name_plural = "Admin Users"
 
 # --------------------------
 # Academic Structure Models
@@ -47,12 +146,31 @@ class Department(models.Model):
     department_name = models.CharField(max_length=100)
     department_code = models.CharField(max_length=10, unique=True)
     description = models.TextField(blank=True)
+    head_of_department = models.CharField(max_length=200, blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=20, blank=True)
+    location = models.CharField(max_length=200, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['department_name']
+    
+    @property
+    def teachers_count(self):
+        """Get count of teachers in this department"""
+        return self.staff_members.filter(role='teacher').count()
+    
+    @property
+    def students_count(self):
+        """Get count of students in this department"""
+        return self.students.filter(status='active').count()
+    
+    @property
+    def courses_count(self):
+        """Get count of active courses in this department"""
+        return self.courses.filter(status='active').count()
     
     def __str__(self):
         return f"{self.department_name} ({self.department_code})"
@@ -62,6 +180,7 @@ class Specialization(models.Model):
     specialization_code = models.CharField(max_length=10, unique=True)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='specializations')
     description = models.TextField(blank=True)
+    duration_years = models.IntegerField(default=4, validators=[MinValueValidator(1), MaxValueValidator(10)])
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -69,12 +188,23 @@ class Specialization(models.Model):
     class Meta:
         ordering = ['specialization_name']
     
+    @property
+    def students_count(self):
+        """Get count of students in this specialization"""
+        return self.students.filter(status='active').count()
+    
+    @property
+    def teachers_count(self):
+        """Get count of teachers specializing in this area"""
+        return self.specialists.filter(role='teacher').count()
+    
     def __str__(self):
         return f"{self.specialization_name} ({self.specialization_code})"
 
 class Level(models.Model):
     level_name = models.CharField(max_length=50)  # e.g., "100", "200", "Year 1"
     level_code = models.CharField(max_length=10, unique=True)
+    level_order = models.IntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(10)])
     departments = models.ManyToManyField(Department, related_name='levels')
     specializations = models.ManyToManyField(Specialization, related_name='levels')
     description = models.TextField(blank=True)
@@ -83,7 +213,12 @@ class Level(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['level_name']
+        ordering = ['level_order', 'level_name']
+    
+    @property
+    def students_count(self):
+        """Get count of students in this level"""
+        return self.students.filter(status='active').count()
     
     def __str__(self):
         return f"Level {self.level_name}"
@@ -93,6 +228,7 @@ class Course(models.Model):
     course_name = models.CharField(max_length=200)
     credits = models.IntegerField(default=3, validators=[MinValueValidator(1), MaxValueValidator(10)])
     description = models.TextField(blank=True)
+    semester = models.IntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(3)])
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='courses')
     specializations = models.ManyToManyField(Specialization, related_name='courses')
     level = models.ForeignKey(Level, on_delete=models.CASCADE, related_name='courses')
@@ -102,13 +238,26 @@ class Course(models.Model):
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
+        ('archived', 'Archived'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    room = models.CharField(max_length=100, blank=True)
+    schedule = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['course_code']
+    
+    @property
+    def active_students_count(self):
+        """Get count of enrolled active students"""
+        return self.enrolled_students.filter(status='active').count()
+    
+    @property
+    def teachers_count(self):
+        """Get count of assigned teachers"""
+        return self.teachers.count()
     
     def __str__(self):
         return f"{self.course_code} - {self.course_name}"
@@ -124,6 +273,16 @@ class Student(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+        ('Other', 'Other'),
+    ]
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True)
+    emergency_contact = models.CharField(max_length=200, blank=True)
+    emergency_phone = models.CharField(max_length=20, blank=True)
     
     # Legacy fields for compatibility
     student_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
@@ -132,16 +291,21 @@ class Student(models.Model):
     
     # Academic Structure Relationships
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='students')
-    specialization = models.ForeignKey(Specialization, on_delete=models.CASCADE, related_name='students')
+    specialization = models.ForeignKey(Specialization, on_delete=models.CASCADE, related_name='students', null=True, blank=True)
     level = models.ForeignKey(Level, on_delete=models.CASCADE, related_name='students')
     enrolled_courses = models.ManyToManyField(Course, related_name='enrolled_students', blank=True)
     
-    # Status and Calculated Fields
+    # Academic Information
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
+        ('graduated', 'Graduated'),
+        ('suspended', 'Suspended'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    registration_date = models.DateField(default=timezone.now)  # Changed from auto_now_add
+    graduation_date = models.DateField(null=True, blank=True)
+    academic_year = models.CharField(max_length=20, default="2024-2025")
     attendance_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
     
     # Face Recognition Fields
@@ -152,6 +316,8 @@ class Student(models.Model):
         ('facenet', 'FaceNet'),
     ]
     face_encoding_model = models.CharField(max_length=10, choices=FACE_MODEL_CHOICES, default='cnn')
+    face_images_count = models.IntegerField(default=0)
+    last_attendance = models.DateTimeField(null=True, blank=True)
     
     # Timestamps
     registered_on = models.DateTimeField(auto_now_add=True)
@@ -165,6 +331,11 @@ class Student(models.Model):
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
     
+    @property
+    def enrolled_courses_count(self):
+        """Get count of enrolled courses"""
+        return self.enrolled_courses.count()
+    
     def save(self, *args, **kwargs):
         # Update legacy name field for backward compatibility
         self.name = self.full_name
@@ -177,10 +348,13 @@ class Student(models.Model):
         """Auto-assign courses based on department, specialization, and level"""
         courses = Course.objects.filter(
             department=self.department,
-            specializations=self.specialization,
             level=self.level,
             status='active'
         )
+        
+        if self.specialization:
+            courses = courses.filter(specializations=self.specialization)
+        
         self.enrolled_courses.set(courses)
     
     def calculate_attendance_rate(self):
@@ -189,7 +363,7 @@ class Student(models.Model):
         if total_records == 0:
             return 0.00
         
-        present_records = self.attendance_records.filter(status='present').count()
+        present_records = self.attendance_records.filter(status__in=['present', 'late']).count()
         rate = (present_records / total_records) * 100
         self.attendance_rate = round(rate, 2)
         self.save(update_fields=['attendance_rate'])
@@ -209,19 +383,27 @@ class AttendanceRecord(models.Model):
         ('present', 'Present'),
         ('absent', 'Absent'),
         ('late', 'Late'),
+        ('excused', 'Excused'),
     ]
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='present')
     
     check_in_time = models.DateTimeField(auto_now_add=True)
     check_out_time = models.DateTimeField(null=True, blank=True)
-    attendance_date = models.DateField(auto_now_add=True)  # Add this field for unique constraint
+    attendance_date = models.DateField(auto_now_add=True)
     
+    # Recognition Details
+    recognition_confidence = models.FloatField(null=True, blank=True)
     RECOGNITION_MODEL_CHOICES = [
         ('cnn', 'CNN'),
         ('hog', 'HOG'),
         ('facenet', 'FaceNet'),
     ]
     recognition_model = models.CharField(max_length=10, choices=RECOGNITION_MODEL_CHOICES, default='cnn')
+    
+    # Additional Information
+    location = models.CharField(max_length=200, blank=True)
+    device_info = models.CharField(max_length=200, blank=True)
+    notes = models.TextField(blank=True)
     
     # Legacy fields for compatibility
     timestamp = models.DateTimeField(auto_now_add=True)  # Alias for check_in_time
@@ -232,6 +414,11 @@ class AttendanceRecord(models.Model):
     class Meta:
         ordering = ['-check_in_time']
         unique_together = ['student', 'course', 'attendance_date']
+        indexes = [
+            models.Index(fields=['student', '-attendance_date']),
+            models.Index(fields=['course', '-attendance_date']),
+            models.Index(fields=['status', '-attendance_date']),
+        ]
     
     def save(self, *args, **kwargs):
         # Automatically set attendance_date from check_in_time
@@ -400,12 +587,19 @@ class SecuritySettings(models.Model):
 
 class SystemSettings(models.Model):
     """Global system configuration"""
-    # School Information
+    # Institution Information
+    institution_name = models.CharField(max_length=200, default="FACE.IT School")
+    institution_code = models.CharField(max_length=20, blank=True)
+    address = models.TextField(blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=20, blank=True)
+    academic_year = models.CharField(max_length=20, default="2024-2025")
+    
+    # Legacy fields for compatibility
     school_name = models.CharField(max_length=200, default="FACE.IT School")
     school_address = models.TextField(blank=True)
     school_phone = models.CharField(max_length=20, blank=True)
     school_email = models.EmailField(blank=True)
-    academic_year = models.CharField(max_length=20, default="2024-2025")
     
     # Time and Localization
     timezone = models.CharField(max_length=50, default="UTC")
@@ -480,7 +674,7 @@ class SystemSettings(models.Model):
         verbose_name_plural = "System Settings"
     
     def __str__(self):
-        return f"System Settings - {self.school_name}"
+        return f"System Settings - {self.institution_name or self.school_name}"
     
     @classmethod
     def get_settings(cls):
@@ -507,23 +701,13 @@ class SystemBackup(models.Model):
         return f"Backup - {self.filename}"
 
 # --------------------------
-# Signals for Auto-Assignment
+# Session-Based Attendance Models
 # --------------------------
-@receiver(post_save, sender=Student)
-def auto_assign_courses_signal(sender, instance, created, **kwargs):
-    """Auto-assign courses when a new student is created"""
-    if created:
-        instance.auto_assign_courses()
-
-@receiver(post_save, sender=AttendanceRecord)
-def update_attendance_rate_signal(sender, instance, created, **kwargs):
-    """Update student attendance rate when attendance is recorded"""
-    if created:
-        instance.student.calculate_attendance_rate()
 class AttendanceSession(models.Model):
     """Session-based attendance management for real-time attendance tracking"""
     
     STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
         ('active', 'Active'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -545,11 +729,11 @@ class AttendanceSession(models.Model):
     
     # Session Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-    is_auto_closed = models.BooleanField(default=False)
+    auto_end_enabled = models.BooleanField(default=True)
     
     # Room/Location Info
     room = models.CharField(max_length=100, blank=True)
-    location_notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
     
     # Statistics
     total_students_expected = models.IntegerField(default=0)
@@ -559,10 +743,21 @@ class AttendanceSession(models.Model):
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['-start_time']
+        indexes = [
+            models.Index(fields=['course', '-start_time']),
+            models.Index(fields=['teacher', '-start_time']),
+            models.Index(fields=['status', '-start_time']),
+        ]
+    
+    @property
+    def attendance_rate(self):
+        """Calculate attendance rate for this session"""
+        if self.total_students_expected == 0:
+            return 0.0
+        return round((self.present_count + self.late_count) / self.total_students_expected * 100, 2)
     
     def __str__(self):
         return f"Session {self.session_id} - {self.course.course_code} ({self.status})"
@@ -580,7 +775,6 @@ class AttendanceSession(models.Model):
         """End the attendance session"""
         self.status = 'completed'
         self.actual_end_time = timezone.now()
-        self.is_auto_closed = auto_closed
         self.save()
         self.mark_remaining_as_absent()
     
@@ -591,11 +785,11 @@ class AttendanceSession(models.Model):
         
         for student in enrolled_students:
             SessionCheckIn.objects.create(
-                session=self,
+                attendance_session=self,
                 student=student,
                 status='absent',
                 check_in_time=self.actual_end_time or timezone.now(),
-                is_auto_generated=True
+                is_manual_override=True
             )
         
         self.update_statistics()
@@ -604,14 +798,14 @@ class AttendanceSession(models.Model):
         """Update session statistics"""
         checkins = self.session_checkins.all()
         self.present_count = checkins.filter(status='present').count()
-        self.late_count = checkins.filter(status='present_late').count()
+        self.late_count = checkins.filter(status='late').count()
         self.absent_count = checkins.filter(status='absent').count()
         self.save(update_fields=['present_count', 'late_count', 'absent_count'])
     
     @property
     def should_auto_close(self):
         """Check if session should be auto-closed"""
-        if self.status != 'active':
+        if self.status != 'active' or not self.auto_end_enabled:
             return False
         return timezone.now() >= self.expected_end_time
 
@@ -621,12 +815,12 @@ class SessionCheckIn(models.Model):
     
     STATUS_CHOICES = [
         ('present', 'Present'),
-        ('present_late', 'Present (Late)'),
+        ('late', 'Late'),
         ('absent', 'Absent'),
     ]
     
     # Basic Information
-    session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='session_checkins')
+    attendance_session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='session_checkins')
     student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='session_checkins')
     
     # Check-in Details
@@ -635,59 +829,64 @@ class SessionCheckIn(models.Model):
     
     # Recognition Details
     recognition_confidence = models.FloatField(null=True, blank=True)
-    recognition_model = models.CharField(max_length=20, default='cnn')
     
     # Additional Fields
-    is_auto_generated = models.BooleanField(default=False)  # For marking absent students
     is_manual_override = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = [['session', 'student']]
+        unique_together = [['attendance_session', 'student']]
         ordering = ['-check_in_time']
         indexes = [
-            models.Index(fields=['session', '-check_in_time']),
+            models.Index(fields=['attendance_session', '-check_in_time']),
             models.Index(fields=['student', '-check_in_time']),
             models.Index(fields=['status', '-check_in_time']),
         ]
     
+    @property
+    def student_name(self):
+        """Get student name for serializer"""
+        return self.student.full_name
+    
+    @property
+    def student_matric(self):
+        """Get student matric number for serializer"""
+        return self.student.matric_number
+    
     def __str__(self):
-        return f"{self.student.full_name} - {self.session.session_id} ({self.status})"
+        return f"{self.student.full_name} - {self.attendance_session.session_id} ({self.status})"
     
     def save(self, *args, **kwargs):
         # Determine status based on timing if not set
-        if not self.status and not self.is_auto_generated:
-            session_start = self.session.start_time
-            grace_end = session_start + timezone.timedelta(minutes=self.session.grace_period_minutes)
-            session_end = self.session.expected_end_time
+        if not self.status and not self.is_manual_override:
+            session_start = self.attendance_session.start_time
+            grace_end = session_start + timezone.timedelta(minutes=self.attendance_session.grace_period_minutes)
+            session_end = self.attendance_session.expected_end_time
             
             if self.check_in_time <= grace_end:
                 self.status = 'present'
             elif self.check_in_time <= session_end:
-                self.status = 'present_late'
+                self.status = 'late'
             else:
                 self.status = 'absent'
         
         super().save(*args, **kwargs)
         
         # Update session statistics
-        self.session.update_statistics()
+        self.attendance_session.update_statistics()
         
         # Create traditional attendance record for backward compatibility
         self.create_attendance_record()
     
     def create_attendance_record(self):
         """Create a traditional AttendanceRecord for backward compatibility"""
-        from .models import AttendanceRecord
-        
         # Map session status to traditional status
         status_mapping = {
             'present': 'present',
-            'present_late': 'late',
+            'late': 'late',
             'absent': 'absent'
         }
         
@@ -696,16 +895,74 @@ class SessionCheckIn(models.Model):
         # Check if record already exists
         existing_record = AttendanceRecord.objects.filter(
             student=self.student,
-            course=self.session.course,
+            course=self.attendance_session.course,
             attendance_date=self.check_in_time.date()
         ).first()
         
         if not existing_record:
             AttendanceRecord.objects.create(
                 student=self.student,
-                course=self.session.course,
+                course=self.attendance_session.course,
                 status=attendance_status,
                 check_in_time=self.check_in_time,
                 attendance_date=self.check_in_time.date(),
-                recognition_model=self.recognition_model
+                recognition_model='cnn'
             )
+
+# --------------------------
+# Signals for Auto-Assignment
+# --------------------------
+@receiver(post_save, sender=Student)
+def auto_assign_courses_signal(sender, instance, created, **kwargs):
+    """Auto-assign courses when a new student is created"""
+    if created:
+        instance.auto_assign_courses()
+
+@receiver(post_save, sender=AttendanceRecord)
+def update_attendance_rate_signal(sender, instance, created, **kwargs):
+    """Update student attendance rate when attendance is recorded"""
+    if created:
+        instance.student.calculate_attendance_rate()
+
+@receiver(post_save, sender=SessionCheckIn)
+def update_last_attendance_signal(sender, instance, created, **kwargs):
+    """Update student's last attendance timestamp"""
+    if created and instance.status in ['present', 'late']:
+        instance.student.last_attendance = instance.check_in_time
+        instance.student.save(update_fields=['last_attendance'])
+
+# --------------------------
+# Additional Helper Methods
+# --------------------------
+def get_department_teachers(department_id):
+    """Get all teachers in a specific department"""
+    return AdminUser.objects.filter(
+        role='teacher',
+        department_id=department_id,
+        is_active=True
+    ).select_related('department', 'specialization')
+
+def get_active_attendance_sessions():
+    """Get all currently active attendance sessions"""
+    return AttendanceSession.objects.filter(
+        status='active'
+    ).select_related('course', 'teacher')
+
+def get_student_attendance_summary(student_id, start_date=None, end_date=None):
+    """Get attendance summary for a student within date range"""
+    filters = {'student_id': student_id}
+    
+    if start_date:
+        filters['attendance_date__gte'] = start_date
+    if end_date:
+        filters['attendance_date__lte'] = end_date
+    
+    records = AttendanceRecord.objects.filter(**filters)
+    
+    return {
+        'total': records.count(),
+        'present': records.filter(status='present').count(),
+        'late': records.filter(status='late').count(),
+        'absent': records.filter(status='absent').count(),
+        'excused': records.filter(status='excused').count(),
+    }
