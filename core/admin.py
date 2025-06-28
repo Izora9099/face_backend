@@ -108,14 +108,18 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
 # --------------------------
 @admin.register(AdminUser)
 class AdminUserAdmin(admin.ModelAdmin):
-    list_display = ['username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'last_login']
-    list_filter = ['role', 'is_active', 'is_superuser', 'date_joined']
-    search_fields = ['username', 'first_name', 'last_name', 'email']
+    list_display = ['username', 'first_name', 'last_name', 'email', 'role', 'department', 'is_active', 'last_login']
+    list_filter = ['role', 'department', 'specialization', 'is_active', 'is_superuser', 'date_joined']
+    search_fields = ['username', 'first_name', 'last_name', 'email', 'employee_id']
     ordering = ['username']
     
     fieldsets = (
         ('Personal Information', {
             'fields': ('username', 'first_name', 'last_name', 'email', 'phone')
+        }),
+        ('Professional Information', {
+            'fields': ('department', 'specialization', 'employee_id', 'job_title', 'hire_date', 'is_department_head'),
+            'description': 'Department and role-specific information'
         }),
         ('Role & Permissions', {
             'fields': ('role', 'permissions', 'is_active', 'is_superuser')
@@ -131,7 +135,6 @@ class AdminUserAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ['last_login', 'date_joined']
-
 # --------------------------
 # System Management Admin (Only include if models exist)
 # --------------------------

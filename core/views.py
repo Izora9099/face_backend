@@ -1466,29 +1466,41 @@ def get_admin_users(request):
         if not (request.user.is_superuser or getattr(request.user, 'role', '') in ['superadmin', 'staff']):
             return Response({'error': 'Permission denied'}, status=403)
         
-        users = User.objects.filter(is_active=True).values(
-            'id', 'username', 'email', 'first_name', 'last_name', 
-            'role', 'is_superuser', 'last_login', 'date_joined'
-        )
+        users = User.objects.filter(is_active=True).select_related('department', 'specialization')
         
         # Format the data for frontend
         admin_users = []
         for user in users:
             admin_users.append({
-                'id': user['id'],
-                'name': f"{user['first_name']} {user['last_name']}".strip() or user['username'],
-                'email': user['email'],
-                'role': user['role'] if user['role'] else ('Super Admin' if user['is_superuser'] else 'Staff'),
-                'status': 'Active',  # You can add more logic here
-                'last_login': user['last_login'].isoformat() if user['last_login'] else None,
-                'permissions': []  # You can add permissions logic here
+                'id': user.id,
+                'name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'phone': user.phone,
+                'role': user.role if user.role else ('Super Admin' if user.is_superuser else 'Staff'),
+                'employee_id': user.employee_id,
+                
+                # ✅ ADD THESE MISSING FIELDS:
+                'department_id': user.department.id if user.department else None,
+                'department': user.department.department_name if user.department else None,
+                'specialization_id': user.specialization.id if user.specialization else None, 
+                'specialization': user.specialization.specialization_name if user.specialization else None,
+                
+                'job_title': getattr(user, 'job_title', ''),
+                'status': 'Active',
+                'is_active': user.is_active,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+                'date_joined': user.date_joined.isoformat(),
+                'created_at': user.date_joined.isoformat(),
+                'updated_at': user.date_joined.isoformat(),
+                'permissions': []
             })
         
         return Response(admin_users)
     except Exception as e:
-        return Response({'error': str(e)}, status=500)
-
-@api_view(['POST'])
+        return Response({'error': str(e)}, status=500)@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_admin_user(request):
     """Create new admin user"""
@@ -1499,25 +1511,89 @@ def create_admin_user(request):
         
         data = json.loads(request.body)
         
+        # Extract name parts
+        name = data.get('name', '')
+        first_name = data.get('first_name', '')
+        last_name = data.get('last_name', '')
+        
+        if name and not first_name and not last_name:
+            name_parts = name.split(' ', 1)
+            first_name = name_parts[0] if name_parts else ''
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+        
         # Create user
         user = User.objects.create_user(
-            username=data.get('email'),  # Use email as username
+            username=data.get('username') or data.get('email'),
             email=data.get('email'),
-            first_name=data.get('name', '').split(' ')[0] if data.get('name') else '',
-            last_name=' '.join(data.get('name', '').split(' ')[1:]) if data.get('name') and len(data.get('name').split(' ')) > 1 else '',
+            first_name=first_name,
+            last_name=last_name,
             role=data.get('role', 'staff').lower().replace(' ', '')
         )
         
-        # Set temporary password (you should send this via email)
-        user.set_password('temppassword123')
+        # Set password if provided
+        if data.get('password'):
+            user.set_password(data.get('password'))
+        else:
+            # Set temporary password
+            user.set_password('temppassword123')
+        
+        # Set additional fields
+        if data.get('phone'):
+            user.phone = data.get('phone')
+            
+        if data.get('employee_id'):
+            user.employee_id = data.get('employee_id')
+        
+        # Handle department assignment
+        if data.get('department_id'):
+            try:
+                from .models import Department
+                department = Department.objects.get(id=data.get('department_id'))
+                user.department = department
+            except Department.DoesNotExist:
+                pass
+        
+        # Handle specialization assignment
+        if data.get('specialization_id'):
+            try:
+                from .models import Specialization
+                specialization = Specialization.objects.get(id=data.get('specialization_id'))
+                user.specialization = specialization
+            except Specialization.DoesNotExist:
+                pass
+        
+        if data.get('job_title'):
+            user.job_title = data.get('job_title')
+        
         user.save()
+        
+        # Log the activity
+        log_user_activity(
+            request.user, 'CREATE_ADMIN_USER', 'admin_users',
+            f"Created admin user: {user.first_name} {user.last_name}",
+            request,
+            resource_id=user.id
+        )
         
         return Response({
             'id': user.id,
             'name': f"{user.first_name} {user.last_name}".strip() or user.username,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
             'email': user.email,
-            'role': data.get('role'),
-            'status': 'Active'
+            'phone': user.phone,
+            'role': user.role,
+            'employee_id': user.employee_id,
+            'department_id': user.department.id if user.department else None,
+            'department': user.department.department_name if user.department else None,
+            'specialization_id': user.specialization.id if user.specialization else None,
+            'specialization': user.specialization.specialization_name if user.specialization else None,
+            'job_title': user.job_title,
+            'status': 'Active',
+            'date_joined': user.date_joined.isoformat(),
+            'created_at': user.date_joined.isoformat(),
+            'updated_at': user.date_joined.isoformat()
         })
     except Exception as e:
         return Response({'error': str(e)}, status=500)
@@ -1857,32 +1933,106 @@ def update_admin_user(request, user_id):
         if request.method == 'PUT':
             data = json.loads(request.body)
             
-            # Update user fields
+            # Update basic user fields
             if 'name' in data:
                 name_parts = data['name'].split(' ', 1)
                 user.first_name = name_parts[0] if name_parts else ''
                 user.last_name = name_parts[1] if len(name_parts) > 1 else ''
             
+            # Individual name fields (React sends these)
+            if 'first_name' in data:
+                user.first_name = data['first_name']
+            if 'last_name' in data:
+                user.last_name = data['last_name']
+            
             if 'email' in data:
                 user.email = data['email']
-                user.username = data['email']  # Use email as username
+                # Only update username if it's currently the same as email
+                if user.username == user.email or not user.username:
+                    user.username = data['email']
             
             if 'role' in data:
                 user.role = data['role'].lower().replace(' ', '')
             
+            # Handle phone field
+            if 'phone' in data:
+                user.phone = data['phone']
+                
+            # Handle employee_id field
+            if 'employee_id' in data:
+                user.employee_id = data['employee_id']
+            
+            # Handle department assignment
+            if 'department_id' in data:
+                if data['department_id']:
+                    try:
+                        from .models import Department
+                        department = Department.objects.get(id=data['department_id'])
+                        user.department = department
+                    except Department.DoesNotExist:
+                        user.department = None
+                else:
+                    user.department = None
+            
+            # Handle specialization assignment  
+            if 'specialization_id' in data:
+                if data['specialization_id']:
+                    try:
+                        from .models import Specialization
+                        specialization = Specialization.objects.get(id=data['specialization_id'])
+                        user.specialization = specialization
+                    except Specialization.DoesNotExist:
+                        user.specialization = None
+                else:
+                    user.specialization = None
+            
+            # Handle job_title if provided
+            if 'job_title' in data:
+                user.job_title = data['job_title']
+            
+            # Save the user
             user.save()
             
+            # Log the activity
+            log_user_activity(
+                request.user, 'UPDATE_ADMIN_USER', 'admin_users',
+                f"Updated admin user: {user.first_name} {user.last_name}",
+                request,
+                resource_id=user.id
+            )
+            
+            # Return updated user data
             return Response({
                 'id': user.id,
                 'name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
                 'email': user.email,
-                'role': data.get('role'),
-                'status': 'Active'
+                'phone': user.phone,
+                'role': user.role,
+                'employee_id': user.employee_id,
+                'department_id': user.department.id if user.department else None,
+                'department': user.department.department_name if user.department else None,
+                'specialization_id': user.specialization.id if user.specialization else None,
+                'specialization': user.specialization.specialization_name if user.specialization else None,
+                'job_title': user.job_title,
+                'status': 'Active',
+                'updated_at': timezone.now().isoformat()
             })
         
         elif request.method == 'DELETE':
+            # Soft delete - deactivate user instead of hard delete
             user.is_active = False
             user.save()
+            
+            # Log the activity
+            log_user_activity(
+                request.user, 'DELETE_ADMIN_USER', 'admin_users',
+                f"Deactivated admin user: {user.first_name} {user.last_name}",
+                request,
+                resource_id=user.id
+            )
+            
             return Response({'message': 'User deactivated successfully'})
     
     except Exception as e:
