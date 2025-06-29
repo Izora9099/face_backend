@@ -249,8 +249,6 @@ class CourseViewSet(ModelViewSet):
         return queryset.order_by('course_code')
     
     def get_serializer_class(self):
-        if self.action == 'list':
-            return CourseListSerializer
         return CourseSerializer
     
     def perform_create(self, serializer):
