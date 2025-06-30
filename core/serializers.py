@@ -26,6 +26,9 @@ from django.contrib.auth.models import User
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+
+from .models import TimetableEntry, TimeSlot, Room, Course, AdminUser
+
 # --------------------------
 # Academic Structure Serializers
 # --------------------------
@@ -454,3 +457,70 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom JWT view that uses our custom serializer"""
     serializer_class = CustomTokenObtainPairSerializer
+
+class TimeSlotSerializer(serializers.ModelSerializer):
+    day_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TimeSlot
+        fields = ['id', 'day_of_week', 'day_name', 'start_time', 'end_time', 'duration_minutes']
+    
+    def get_day_name(self, obj):
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        return days[obj.day_of_week]
+
+class RoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = ['id', 'name', 'capacity', 'building', 'floor', 'equipment', 'is_available']
+
+class TeacherBasicSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AdminUser
+        fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'email']
+    
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+class CourseBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = ['id', 'course_code', 'course_name', 'credits', 'level', 'department']
+
+class TimetableEntrySerializer(serializers.ModelSerializer):
+    course = CourseBasicSerializer(read_only=True)
+    teacher = TeacherBasicSerializer(read_only=True)
+    time_slot = TimeSlotSerializer(read_only=True)
+    room = RoomSerializer(read_only=True)
+    
+    # For creating/updating
+    course_id = serializers.IntegerField(write_only=True)
+    teacher_id = serializers.IntegerField(write_only=True)
+    time_slot_id = serializers.IntegerField(write_only=True)
+    room_id = serializers.IntegerField(write_only=True)
+    
+    class Meta:
+        model = TimetableEntry
+        fields = [
+            'id', 'course', 'teacher', 'time_slot', 'room',
+            'academic_year', 'semester', 'is_active', 'notes',
+            'created_at', 'updated_at',
+            'course_id', 'teacher_id', 'time_slot_id', 'room_id'
+        ]
+    
+    def create(self, validated_data):
+        # Convert IDs to actual objects
+        course = Course.objects.get(id=validated_data.pop('course_id'))
+        teacher = AdminUser.objects.get(id=validated_data.pop('teacher_id'))
+        time_slot = TimeSlot.objects.get(id=validated_data.pop('time_slot_id'))
+        room = Room.objects.get(id=validated_data.pop('room_id'))
+        
+        return TimetableEntry.objects.create(
+            course=course,
+            teacher=teacher,
+            time_slot=time_slot,
+            room=room,
+            **validated_data
+        )

@@ -87,4 +87,12 @@ urlpatterns = [
     path('sessions/end/', views.end_attendance_session, name='end_attendance_session'),
     path('attendance/checkin/', views.session_based_attendance, name='session_based_attendance'),
     path('sessions/<str:session_id>/stats/', views.get_session_stats, name='get_session_stats'),
+
+    # Timetable Management URLs
+    path('api/timetable/entries/', views.timetable_entries, name='timetable_entries'),
+    path('api/timetable/entries/<int:entry_id>/', views.timetable_entry_detail, name='timetable_entry_detail'),
+    path('api/timetable/timeslots/', views.time_slots, name='time_slots'),
+    path('api/timetable/rooms/', views.rooms, name='rooms'),
+    path('api/timetable/teachers/', views.timetable_teachers, name='timetable_teachers'),
+    path('api/timetable/courses/', views.timetable_courses, name='timetable_courses'),
 ]

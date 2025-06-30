@@ -77,6 +77,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import JsonResponse
 import json
+from datetime import datetime
+from .models import TimetableEntry, TimeSlot, Room, Course, AdminUser
+from .serializers import TimetableEntrySerializer, TimeSlotSerializer, RoomSerializer, CourseBasicSerializer, TeacherBasicSerializer
 
 # Get the User model
 User = get_user_model()
@@ -2201,3 +2204,204 @@ def attendance_detail(request, pk):
         })
     except AttendanceRecord.DoesNotExist:
         return Response({'error': 'Attendance record not found'}, status=404)
+
+# --------------------------
+# Timetable Management APIs
+# --------------------------
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def timetable_entries(request):
+    """Get all timetable entries or create a new one"""
+    
+    if request.method == 'GET':
+        # Get query parameters for filtering
+        teacher_id = request.GET.get('teacher_id')
+        academic_year = request.GET.get('academic_year')
+        semester = request.GET.get('semester')
+        level = request.GET.get('level')
+        department = request.GET.get('department')
+        
+        # Build queryset with filters
+        queryset = TimetableEntry.objects.filter(is_active=True)
+        
+        if teacher_id:
+            queryset = queryset.filter(teacher_id=teacher_id)
+        if academic_year:
+            queryset = queryset.filter(academic_year=academic_year)
+        if semester:
+            queryset = queryset.filter(semester=semester)
+        if level:
+            queryset = queryset.filter(course__level__level_name=level)
+        if department:
+            queryset = queryset.filter(course__department__name=department)
+        
+        # For teachers, only show their own timetable
+        if request.user.role == 'teacher':
+            queryset = queryset.filter(teacher=request.user)
+        
+        serializer = TimetableEntrySerializer(queryset, many=True)
+        
+        log_user_activity(
+            request.user, 'VIEW_TIMETABLE', 'timetable',
+            f"Viewed timetable entries (filters: teacher_id={teacher_id}, academic_year={academic_year})",
+            request
+        )
+        
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        # Only admin and staff can create timetable entries
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = TimetableEntrySerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                timetable_entry = serializer.save()
+                
+                log_user_activity(
+                    request.user, 'CREATE_TIMETABLE_ENTRY', 'timetable',
+                    f"Created timetable entry for {timetable_entry.course.course_code}",
+                    request,
+                    resource_id=timetable_entry.id
+                )
+                
+                return Response(
+                    TimetableEntrySerializer(timetable_entry).data,
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def timetable_entry_detail(request, entry_id):
+    """Get, update or delete a specific timetable entry"""
+    
+    try:
+        entry = TimetableEntry.objects.get(id=entry_id)
+    except TimetableEntry.DoesNotExist:
+        return Response({'error': 'Timetable entry not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Permission check
+    if request.user.role == 'teacher' and entry.teacher != request.user:
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        serializer = TimetableEntrySerializer(entry)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = TimetableEntrySerializer(entry, data=request.data, partial=True)
+        if serializer.is_valid():
+            try:
+                updated_entry = serializer.save()
+                
+                log_user_activity(
+                    request.user, 'UPDATE_TIMETABLE_ENTRY', 'timetable',
+                    f"Updated timetable entry for {updated_entry.course.course_code}",
+                    request,
+                    resource_id=updated_entry.id
+                )
+                
+                return Response(TimetableEntrySerializer(updated_entry).data)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        course_code = entry.course.course_code
+        entry.delete()
+        
+        log_user_activity(
+            request.user, 'DELETE_TIMETABLE_ENTRY', 'timetable',
+            f"Deleted timetable entry for {course_code}",
+            request,
+            resource_id=entry_id
+        )
+        
+        return Response({'message': 'Timetable entry deleted successfully'})
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def time_slots(request):
+    """Get all time slots or create a new one"""
+    
+    if request.method == 'GET':
+        slots = TimeSlot.objects.all()
+        serializer = TimeSlotSerializer(slots, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = TimeSlotSerializer(data=request.data)
+        if serializer.is_valid():
+            slot = serializer.save()
+            
+            log_user_activity(
+                request.user, 'CREATE_TIME_SLOT', 'timeslot',
+                f"Created time slot {slot}",
+                request,
+                resource_id=slot.id
+            )
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def rooms(request):
+    """Get all rooms or create a new one"""
+    
+    if request.method == 'GET':
+        rooms_list = Room.objects.filter(is_available=True)
+        serializer = RoomSerializer(rooms_list, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        if not check_role_permission(request.user, ['superadmin', 'staff']):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = RoomSerializer(data=request.data)
+        if serializer.is_valid():
+            room = serializer.save()
+            
+            log_user_activity(
+                request.user, 'CREATE_ROOM', 'room',
+                f"Created room {room.name}",
+                request,
+                resource_id=room.id
+            )
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def timetable_teachers(request):
+    """Get all teachers for timetable assignment"""
+    teachers = AdminUser.objects.filter(role='teacher', is_active=True)
+    serializer = TeacherBasicSerializer(teachers, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def timetable_courses(request):
+    """Get all active courses for timetable assignment"""
+    courses = Course.objects.filter(status='active')
+    serializer = CourseBasicSerializer(courses, many=True)
+    return Response(serializer.data)

@@ -966,3 +966,110 @@ def get_student_attendance_summary(student_id, start_date=None, end_date=None):
         'absent': records.filter(status='absent').count(),
         'excused': records.filter(status='excused').count(),
     }
+
+class TimeSlot(models.Model):
+    """Time slots for timetable scheduling"""
+    day_of_week = models.IntegerField(
+        choices=[
+            (0, 'Monday'),
+            (1, 'Tuesday'), 
+            (2, 'Wednesday'),
+            (3, 'Thursday'),
+            (4, 'Friday'),
+            (5, 'Saturday'),
+            (6, 'Sunday'),
+        ]
+    )
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    duration_minutes = models.IntegerField()
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['day_of_week', 'start_time']
+        unique_together = ['day_of_week', 'start_time']
+    
+    def __str__(self):
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        return f"{days[self.day_of_week]} {self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
+
+class Room(models.Model):
+    """Classroom/venue management"""
+    name = models.CharField(max_length=100)
+    capacity = models.IntegerField()
+    building = models.CharField(max_length=100, blank=True)
+    floor = models.CharField(max_length=20, blank=True)
+    equipment = models.JSONField(default=list, blank=True)  # List of available equipment
+    is_available = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['building', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.building})"
+
+class TimetableEntry(models.Model):
+    """Main timetable entry linking courses, teachers, time slots and rooms"""
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='timetable_entries')
+    teacher = models.ForeignKey(
+        get_user_model(), 
+        on_delete=models.CASCADE, 
+        related_name='timetable_entries',
+        limit_choices_to={'role': 'teacher'}
+    )
+    time_slot = models.ForeignKey(TimeSlot, on_delete=models.CASCADE, related_name='timetable_entries')
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='timetable_entries')
+    
+    # Academic information
+    academic_year = models.CharField(max_length=20, default='2024-2025')
+    semester = models.IntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(3)]
+    )
+    
+    # Status and metadata
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['time_slot__day_of_week', 'time_slot__start_time']
+        unique_together = [
+            ['time_slot', 'room'],  # No room conflicts
+            ['time_slot', 'teacher'],  # No teacher conflicts
+        ]
+        indexes = [
+            models.Index(fields=['academic_year', 'semester']),
+            models.Index(fields=['teacher', 'time_slot']),
+            models.Index(fields=['course', 'time_slot']),
+        ]
+    
+    def clean(self):
+        """Validate that there are no scheduling conflicts"""
+        from django.core.exceptions import ValidationError
+        
+        # Check for course conflicts (same course, different teachers at same time)
+        conflicts = TimetableEntry.objects.filter(
+            course=self.course,
+            time_slot=self.time_slot,
+            academic_year=self.academic_year,
+            semester=self.semester,
+            is_active=True
+        ).exclude(pk=self.pk)
+        
+        if conflicts.exists():
+            raise ValidationError(f"Course {self.course.course_code} already scheduled at this time")
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.course.course_code} - {self.teacher.username} - {self.time_slot}"
