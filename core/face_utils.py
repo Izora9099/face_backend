@@ -5,6 +5,7 @@ from keras_facenet import FaceNet
 from mtcnn.mtcnn import MTCNN
 import cv2
 from PIL import Image
+from .adaptive_detector import AdaptiveFaceDetector
 
 # Initialize models only once
 FACENET_EMBEDDER = None
@@ -275,3 +276,28 @@ def validate_image_quality(image):
         return False, f"Image too large: {w}x{h}, maximum 4000x4000"
         
     return True, "Image quality OK"
+
+# Add new function to your existing face_utils.py
+def detect_faces_hof_adaptive(image_file_or_path, return_metrics=False):
+    """
+    Hall of Faces adaptive face detection
+    Integrates with existing FACE.IT system
+    """
+    detector = AdaptiveFaceDetector()
+    return detector.detect_faces_adaptive(image_file_or_path, return_metrics)
+
+def validate_image_quality_enhanced(image):
+    """
+    Enhanced image quality validation using Hall of Faces enhancer
+    """
+    enhancer = ImageEnhancer()
+    quality_score = enhancer.assess_image_quality(image)
+    
+    if quality_score >= 70:
+        return True, f"Image quality excellent: {quality_score:.1f}/100"
+    elif quality_score >= 50:
+        return True, f"Image quality acceptable: {quality_score:.1f}/100"
+    elif quality_score >= 30:
+        return True, f"Image quality poor but usable: {quality_score:.1f}/100"
+    else:
+        return False, f"Image quality too poor: {quality_score:.1f}/100. Please retake photo."

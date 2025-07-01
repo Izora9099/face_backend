@@ -214,6 +214,22 @@ REST_FRAMEWORK = {
     )
 }
 
+# Media files for model storage
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+
+# Hall of Faces settings
+HOF_MODELS_PATH = MEDIA_ROOT / 'models'
+HOF_ENABLE_ADAPTIVE_DETECTION = True
+HOF_DEFAULT_TIER = 'adaptive'  # or 'tiny_yolo', 'enhanced_yolo'
+
+# Quality thresholds (can be adjusted per deployment)
+HOF_QUALITY_THRESHOLDS = {
+    'excellent': 85,
+    'good': 60,
+    'acceptable': 30,
+    'poor': 0
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -236,3 +252,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Hall of Faces Configuration
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+HOF_MODELS_PATH = MEDIA_ROOT / 'models'
+HOF_ENABLE_ADAPTIVE_DETECTION = True

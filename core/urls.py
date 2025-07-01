@@ -95,4 +95,9 @@ path('api/timetable/timeslots/', views.time_slots, name='time_slots'),
 path('api/timetable/rooms/', views.rooms, name='rooms'),
 path('api/timetable/teachers/', views.timetable_teachers, name='timetable_teachers'),
 path('api/timetable/courses/', views.timetable_courses, name='timetable_courses'),
+
+# Hall of Faces URLs
+path('api/faces/detect-hof/', views.detect_faces_hof, name='detect_faces_hof'),
+path('api/hof/status/', views.hof_system_status, name='hof_system_status'),
+
 ]

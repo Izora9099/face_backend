@@ -81,6 +81,11 @@ from datetime import datetime
 from .models import TimetableEntry, TimeSlot, Room, Course, AdminUser
 from .serializers import TimetableEntrySerializer, TimeSlotSerializer, RoomSerializer, CourseBasicSerializer, TeacherBasicSerializer
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+import json
+from .adaptive_detector import AdaptiveFaceDetector
 # Get the User model
 User = get_user_model()
 
@@ -2405,3 +2410,60 @@ def timetable_courses(request):
     courses = Course.objects.filter(status='active')
     serializer = CourseBasicSerializer(courses, many=True)
     return Response(serializer.data)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def detect_faces_hof(request):
+    """
+    API endpoint for Hall of Faces face detection
+    """
+    try:
+        # Handle file upload
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            
+            # Save temporarily
+            temp_path = f'/tmp/{image_file.name}'
+            with open(temp_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
+            
+            # Detect faces
+            detector = AdaptiveFaceDetector()
+            faces, metrics = detector.detect_faces_adaptive(temp_path, return_metrics=True)
+            
+            # Clean up
+            os.remove(temp_path)
+            
+            return JsonResponse({
+                'success': True,
+                'faces': faces,
+                'metrics': metrics
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@require_http_methods(["GET"])
+def hof_system_status(request):
+    """
+    Get Hall of Faces system status
+    """
+    try:
+        detector = AdaptiveFaceDetector()
+        status = detector.get_system_status()
+        
+        return JsonResponse({
+            'success': True,
+            'status': status
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
