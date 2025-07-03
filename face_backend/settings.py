@@ -258,3 +258,47 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 HOF_MODELS_PATH = MEDIA_ROOT / 'models'
 HOF_ENABLE_ADAPTIVE_DETECTION = True
+
+# HOF Complete Configuration
+import os
+MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+HOF_MODELS_PATH = MEDIA_ROOT / 'models'
+HOF_ENABLE_ADAPTIVE_DETECTION = True
+HOF_DEFAULT_TIER = 'adaptive'
+
+# Storage-optimized settings for 10GB constraint
+HOF_QUALITY_THRESHOLDS = {
+    'excellent': 85,
+    'good': 60,
+    'acceptable': 30,
+    'poor': 0
+}
+
+# Temp directory for image processing
+HOF_TEMP_DIR = BASE_DIR / 'temp'
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'hof_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': 'logs/hof.log',
+        },
+    },
+    'loggers': {
+        'core.adaptive_detector': {
+            'handlers': ['hof_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'core.hof_models': {
+            'handlers': ['hof_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}

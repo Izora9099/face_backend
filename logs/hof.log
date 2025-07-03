@@ -1,0 +1,553 @@
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Adaptive detection: 3 faces, quality=54.7, tier=tier_3_preprocessing_enhanced, time=1.74s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Adaptive detection: 3 faces, quality=44.0, tier=tier_3_preprocessing_enhanced, time=1.98s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 2 faces with OpenCV
+Adaptive detection: 2 faces, quality=46.8, tier=tier_3_preprocessing_enhanced, time=1.83s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Adaptive detection: 3 faces, quality=44.0, tier=tier_3_preprocessing_enhanced, time=1.60s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Adaptive detection: 3 raw → 1 filtered faces, quality=44.0, tier=tier_3_preprocessing_enhanced, time=2.23s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 2 faces with OpenCV
+Adaptive detection: 2 raw → 1 filtered faces, quality=46.8, tier=tier_3_preprocessing_enhanced, time=3.52s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Adaptive detection: 3 raw → 2 filtered faces, quality=54.7, tier=tier_3_preprocessing_enhanced, time=0.38s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Adaptive detection: 3 raw → 2 filtered faces, quality=55.1, tier=tier_3_preprocessing_enhanced, time=0.42s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Universal detection: 3 raw → 1 final faces (single_person scenario, conservative strategy), quality=44.0, time=2.30s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 2 faces with OpenCV
+Universal detection: 2 raw → 1 final faces (single_person scenario, conservative strategy), quality=46.8, time=2.42s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Universal detection: 3 raw → 3 final faces (small_group scenario, conservative strategy), quality=54.7, time=0.33s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+Detected 3 faces with OpenCV
+Universal detection: 3 raw → 3 final faces (small_group scenario, conservative strategy), quality=54.7, time=0.34s
+✅ OpenCV face detector ready
+✅ Lightweight mode - OpenCV ready, YOLO available on demand
+✅ OpenCV cascade loaded successfully
+📥 Downloading tiny_yolo: Nano model - fastest, ~6MB
+📥 Downloading enhanced_yolo: Small model - balanced, ~22MB
+✅ OpenCV cascade loaded successfully
+✅ tiny_yolo already exists (6.2MB)
+✅ enhanced_yolo already exists (21.5MB)
+OpenCV detected 1 faces
+✅ Loaded YOLO tiny_yolo successfully
+YOLO tiny_yolo detected 1 faces
+✅ Loaded YOLO enhanced_yolo successfully
+YOLO enhanced_yolo detected 1 faces
+YOLO enhanced_yolo detected 1 faces
+Universal detection: 1 raw → 0 final faces (no_faces scenario, conservative strategy), quality=44.0, time=4.19s
+✅ OpenCV cascade loaded successfully
+✅ tiny_yolo already exists (6.2MB)
+✅ enhanced_yolo already exists (21.5MB)
+OpenCV detected 1 faces
+✅ Loaded YOLO tiny_yolo successfully
+YOLO tiny_yolo detected 1 faces
+✅ Loaded YOLO enhanced_yolo successfully
+YOLO enhanced_yolo detected 1 faces
+YOLO enhanced_yolo detected 1 faces
+Universal detection: 1 raw → 0 final faces (no_faces scenario, conservative strategy), quality=46.8, time=3.44s
+✅ OpenCV cascade loaded successfully
+✅ tiny_yolo already exists (6.2MB)
+✅ enhanced_yolo already exists (21.5MB)
+OpenCV detected 2 faces
+✅ Loaded YOLO tiny_yolo successfully
+YOLO tiny_yolo detected 1 faces
+✅ Loaded YOLO enhanced_yolo successfully
+YOLO enhanced_yolo detected 1 faces
+YOLO enhanced_yolo detected 1 faces
+Universal detection: 1 raw → 1 final faces (single_person scenario, conservative strategy), quality=54.7, time=0.54s
+✅ OpenCV cascade loaded successfully
+✅ tiny_yolo already exists (6.2MB)
+✅ enhanced_yolo already exists (21.5MB)
+OpenCV detected 2 faces
+✅ Loaded YOLO tiny_yolo successfully
+YOLO tiny_yolo detected 1 faces
+✅ Loaded YOLO enhanced_yolo successfully
+YOLO enhanced_yolo detected 1 faces
+YOLO enhanced_yolo detected 1 faces
+Universal detection: 1 raw → 1 final faces (single_person scenario, conservative strategy), quality=55.1, time=0.43s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 3 faces
+YOLO adaptive detection: 3 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=44.0, time=4.41s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=46.8, time=4.14s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 3 faces
+YOLO adaptive detection: 3 raw → 3 final faces (small_group, tier_3_enhanced_yolo_yolov8n_face), quality=54.7, time=0.59s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 3 faces
+YOLO adaptive detection: 3 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=55.1, time=0.57s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 4 faces
+YOLO adaptive detection: 4 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=58.0, time=3.04s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 0 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 0 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 0 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 0 faces
+YOLO adaptive detection: 0 raw → 0 final faces (no_faces, tier_3_enhanced_yolo_yolov8n_face), quality=50.3, time=0.62s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 13 faces
+YOLO adaptive detection: 13 raw → 10 final faces (large_group, tier_3_enhanced_yolo_yolov8n_face), quality=46.5, time=13.24s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 5 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 5 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 5 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 5 faces
+YOLO adaptive detection: 5 raw → 5 final faces (small_group, tier_3_enhanced_yolo_yolov8n_face), quality=53.8, time=0.27s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 5 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 5 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 5 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 6 faces
+YOLO adaptive detection: 6 raw → 5 final faces (small_group, tier_3_enhanced_yolo_yolov8n_face), quality=45.1, time=1.17s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=41.9, time=0.74s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 1 faces
+YOLO adaptive detection: 1 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=45.7, time=1.06s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=46.7, time=0.95s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 1 faces
+YOLO adaptive detection: 1 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=45.0, time=0.95s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=46.8, time=0.98s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: <urlopen error [Errno -3] Temporary failure in name resolution>
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 1 faces
+YOLO adaptive detection: 1 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=43.4, time=0.84s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 3 faces
+YOLO adaptive detection: 3 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=44.0, time=7.92s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=46.8, time=6.76s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 3 faces
+YOLO adaptive detection: 3 raw → 3 final faces (small_group, tier_3_enhanced_yolo_yolov8n_face), quality=54.7, time=0.98s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 3 faces
+YOLO adaptive detection: 3 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=55.1, time=0.94s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 4 faces
+YOLO adaptive detection: 4 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=58.0, time=3.73s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 0 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 0 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 0 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 0 faces
+YOLO adaptive detection: 0 raw → 0 final faces (no_faces, tier_3_enhanced_yolo_yolov8n_face), quality=50.3, time=1.16s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 13 faces
+YOLO adaptive detection: 13 raw → 10 final faces (large_group, tier_3_enhanced_yolo_yolov8n_face), quality=46.5, time=21.52s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 5 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 5 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 5 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 5 faces
+YOLO adaptive detection: 5 raw → 5 final faces (small_group, tier_3_enhanced_yolo_yolov8n_face), quality=53.8, time=0.49s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 5 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 5 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 5 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 6 faces
+YOLO adaptive detection: 6 raw → 5 final faces (small_group, tier_3_enhanced_yolo_yolov8n_face), quality=45.1, time=1.89s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=41.9, time=1.16s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 1 faces
+YOLO adaptive detection: 1 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=45.7, time=1.88s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=46.7, time=1.41s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 1 faces
+YOLO adaptive detection: 1 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=45.0, time=1.70s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 2 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 2 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 2 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 2 faces
+YOLO adaptive detection: 2 raw → 2 final faces (pair, tier_3_enhanced_yolo_yolov8n_face), quality=46.8, time=1.80s
+✅ OpenCV fallback ready
+📥 Downloading yolov8n_face: YOLOv8 Nano Face (6MB) - Fast and accurate
+❌ Failed to download yolov8n_face: HTTP Error 404: Not Found
+Using OpenCV fallback for opencv_haar
+OpenCV fallback detected 1 faces
+Unknown model: tiny_yolo
+Using OpenCV fallback for tiny_yolo
+OpenCV fallback detected 1 faces
+Unknown model: enhanced_yolo
+Using OpenCV fallback for enhanced_yolo
+OpenCV fallback detected 1 faces
+Model not found: /home/invictus/face_backend/media/models/yolov8n-face.pt
+Using OpenCV fallback for yolov8n_face
+OpenCV fallback detected 1 faces
+YOLO adaptive detection: 1 raw → 1 final faces (single_person, tier_3_enhanced_yolo_yolov8n_face), quality=43.4, time=1.52s

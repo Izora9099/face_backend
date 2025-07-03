@@ -1,0 +1,1931 @@
+{
+  "Test1": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 1,
+      "processing_time": 4.013,
+      "faces": [
+        {
+          "bbox": [
+            461,
+            508,
+            1545,
+            1592
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 1,
+      "processing_time": 3.836,
+      "faces": [
+        {
+          "bbox": [
+            461,
+            508,
+            1545,
+            1592
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 1,
+      "processing_time": 2.432,
+      "faces": [
+        {
+          "bbox": [
+            461,
+            508,
+            1545,
+            1592
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 1,
+      "processing_time": 7.915,
+      "faces": [
+        {
+          "bbox": [
+            464,
+            501,
+            1536,
+            1573
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 74.64769798023978
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "single_person",
+      "raw_detections": 3,
+      "success": true
+    }
+  },
+  "Test2": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 1,
+      "processing_time": 3.084,
+      "faces": [
+        {
+          "bbox": [
+            453,
+            533,
+            1504,
+            1584
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 1,
+      "processing_time": 2.629,
+      "faces": [
+        {
+          "bbox": [
+            453,
+            533,
+            1504,
+            1584
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 1,
+      "processing_time": 2.777,
+      "faces": [
+        {
+          "bbox": [
+            453,
+            533,
+            1504,
+            1584
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 1,
+      "processing_time": 6.756,
+      "faces": [
+        {
+          "bbox": [
+            435,
+            538,
+            1491,
+            1594
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 81.97005776677791
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "single_person",
+      "raw_detections": 2,
+      "success": true
+    }
+  },
+  "Test3": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 0.819,
+      "faces": [
+        {
+          "bbox": [
+            374,
+            215,
+            538,
+            379
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            493,
+            213,
+            808,
+            528
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.76,
+      "faces": [
+        {
+          "bbox": [
+            374,
+            215,
+            538,
+            379
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            493,
+            213,
+            808,
+            528
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.709,
+      "faces": [
+        {
+          "bbox": [
+            374,
+            215,
+            538,
+            379
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            493,
+            213,
+            808,
+            528
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 3,
+      "processing_time": 0.984,
+      "faces": [
+        {
+          "bbox": [
+            376,
+            217,
+            537,
+            378
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 98.88420392731761
+        },
+        {
+          "bbox": [
+            486,
+            200,
+            822,
+            536
+          ],
+          "confidence": 0.8198622009329619,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 91.8720809417517
+        },
+        {
+          "bbox": [
+            429,
+            651,
+            493,
+            715
+          ],
+          "confidence": 0.6208687216752574,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 45.572523804986275
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "small_group",
+      "raw_detections": 3,
+      "success": true
+    }
+  },
+  "Test4": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 0.877,
+      "faces": [
+        {
+          "bbox": [
+            385,
+            221,
+            536,
+            372
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            515,
+            222,
+            833,
+            540
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.793,
+      "faces": [
+        {
+          "bbox": [
+            385,
+            221,
+            536,
+            372
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            515,
+            222,
+            833,
+            540
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.746,
+      "faces": [
+        {
+          "bbox": [
+            385,
+            221,
+            536,
+            372
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            515,
+            222,
+            833,
+            540
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 2,
+      "processing_time": 0.945,
+      "faces": [
+        {
+          "bbox": [
+            381,
+            219,
+            542,
+            380
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 98.68386443424251
+        },
+        {
+          "bbox": [
+            506,
+            216,
+            844,
+            554
+          ],
+          "confidence": 0.8113465222900771,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 89.70863018897653
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "pair",
+      "raw_detections": 3,
+      "success": true
+    }
+  },
+  "Test5": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 3.623,
+      "faces": [
+        {
+          "bbox": [
+            1930,
+            1114,
+            2132,
+            1316
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            2132,
+            952,
+            2351,
+            1171
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 2.706,
+      "faces": [
+        {
+          "bbox": [
+            1930,
+            1114,
+            2132,
+            1316
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            2132,
+            952,
+            2351,
+            1171
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 2.853,
+      "faces": [
+        {
+          "bbox": [
+            1930,
+            1114,
+            2132,
+            1316
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            2132,
+            952,
+            2351,
+            1171
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 2,
+      "processing_time": 3.73,
+      "faces": [
+        {
+          "bbox": [
+            2133,
+            950,
+            2355,
+            1172
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 98.62972364256149
+        },
+        {
+          "bbox": [
+            1931,
+            1113,
+            2136,
+            1318
+          ],
+          "confidence": 0.8398884985412326,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 96.2831481261154
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "pair",
+      "raw_detections": 4,
+      "success": true
+    }
+  },
+  "Test6": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 0,
+      "processing_time": 1.016,
+      "faces": [],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 0,
+      "processing_time": 0.968,
+      "faces": [],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 0,
+      "processing_time": 0.665,
+      "faces": [],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 0,
+      "processing_time": 1.162,
+      "faces": [],
+      "strategy_used": "unknown",
+      "detection_scenario": "no_faces",
+      "raw_detections": 0,
+      "success": true
+    }
+  },
+  "Test7": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 8.805,
+      "faces": [
+        {
+          "bbox": [
+            2899,
+            1437,
+            3181,
+            1719
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            871,
+            2148,
+            1806,
+            3083
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 9.473,
+      "faces": [
+        {
+          "bbox": [
+            2899,
+            1437,
+            3181,
+            1719
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            871,
+            2148,
+            1806,
+            3083
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 8.596,
+      "faces": [
+        {
+          "bbox": [
+            2899,
+            1437,
+            3181,
+            1719
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            871,
+            2148,
+            1806,
+            3083
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 10,
+      "processing_time": 21.517,
+      "faces": [
+        {
+          "bbox": [
+            1566,
+            2896,
+            1908,
+            3238
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 81.55734688948911
+        },
+        {
+          "bbox": [
+            880,
+            2566,
+            1269,
+            2955
+          ],
+          "confidence": 0.7812605407380969,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 68.36626942120928
+        },
+        {
+          "bbox": [
+            2892,
+            1435,
+            3180,
+            1723
+          ],
+          "confidence": 0.7800599561188796,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 68.13587766530411
+        },
+        {
+          "bbox": [
+            2285,
+            2351,
+            2428,
+            2494
+          ],
+          "confidence": 0.7766966636166788,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 67.49046304579161
+        },
+        {
+          "bbox": [
+            1618,
+            2869,
+            1775,
+            3026
+          ],
+          "confidence": 0.7499509262059326,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 62.35796567208947
+        },
+        {
+          "bbox": [
+            801,
+            1097,
+            885,
+            1181
+          ],
+          "confidence": 0.6834274953673957,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 49.59214325990714
+        },
+        {
+          "bbox": [
+            1659,
+            3393,
+            1721,
+            3455
+          ],
+          "confidence": 0.5652886937161563,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 26.921349783722
+        },
+        {
+          "bbox": [
+            1657,
+            2391,
+            1732,
+            2466
+          ],
+          "confidence": 0.5356834550243064,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 21.24011514434006
+        },
+        {
+          "bbox": [
+            957,
+            3486,
+            1042,
+            3571
+          ],
+          "confidence": 0.5323548961770261,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 20.601365900693672
+        },
+        {
+          "bbox": [
+            478,
+            1770,
+            552,
+            1844
+          ],
+          "confidence": 0.5302124720889384,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 20.190235490019386
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "large_group",
+      "raw_detections": 13,
+      "success": true
+    }
+  },
+  "Test8": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 5,
+      "processing_time": 0.494,
+      "faces": [
+        {
+          "bbox": [
+            340,
+            306,
+            417,
+            383
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            300,
+            34,
+            442,
+            176
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            39,
+            83,
+            184,
+            228
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            292,
+            415,
+            447,
+            570
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            39,
+            350,
+            197,
+            508
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 5,
+      "processing_time": 0.394,
+      "faces": [
+        {
+          "bbox": [
+            340,
+            306,
+            417,
+            383
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            300,
+            34,
+            442,
+            176
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            39,
+            83,
+            184,
+            228
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            292,
+            415,
+            447,
+            570
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            39,
+            350,
+            197,
+            508
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 5,
+      "processing_time": 0.518,
+      "faces": [
+        {
+          "bbox": [
+            340,
+            306,
+            417,
+            383
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            300,
+            34,
+            442,
+            176
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            39,
+            83,
+            184,
+            228
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            292,
+            415,
+            447,
+            570
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            39,
+            350,
+            197,
+            508
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 5,
+      "processing_time": 0.492,
+      "faces": [
+        {
+          "bbox": [
+            339,
+            306,
+            416,
+            383
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 98.95860178782257
+        },
+        {
+          "bbox": [
+            296,
+            27,
+            449,
+            180
+          ],
+          "confidence": 0.8318506059606725,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 94.73262847622709
+        },
+        {
+          "bbox": [
+            290,
+            413,
+            451,
+            574
+          ],
+          "confidence": 0.8238636675750473,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 92.87291964044597
+        },
+        {
+          "bbox": [
+            36,
+            78,
+            191,
+            233
+          ],
+          "confidence": 0.8187699993735253,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 91.68689073881373
+        },
+        {
+          "bbox": [
+            38,
+            348,
+            199,
+            509
+          ],
+          "confidence": 0.8170140191320913,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 91.2780216812623
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "small_group",
+      "raw_detections": 5,
+      "success": true
+    }
+  },
+  "Test9": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 5,
+      "processing_time": 1.377,
+      "faces": [
+        {
+          "bbox": [
+            671,
+            327,
+            726,
+            382
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            891,
+            336,
+            957,
+            402
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            1195,
+            300,
+            1343,
+            448
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            746,
+            354,
+            898,
+            506
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            275,
+            434,
+            425,
+            584
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 5,
+      "processing_time": 1.169,
+      "faces": [
+        {
+          "bbox": [
+            671,
+            327,
+            726,
+            382
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            891,
+            336,
+            957,
+            402
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            1195,
+            300,
+            1343,
+            448
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            746,
+            354,
+            898,
+            506
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            275,
+            434,
+            425,
+            584
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 5,
+      "processing_time": 1.157,
+      "faces": [
+        {
+          "bbox": [
+            671,
+            327,
+            726,
+            382
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            891,
+            336,
+            957,
+            402
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            1195,
+            300,
+            1343,
+            448
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            746,
+            354,
+            898,
+            506
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            275,
+            434,
+            425,
+            584
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 5,
+      "processing_time": 1.889,
+      "faces": [
+        {
+          "bbox": [
+            272,
+            433,
+            424,
+            585
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 86.04525542893313
+        },
+        {
+          "bbox": [
+            748,
+            358,
+            895,
+            505
+          ],
+          "confidence": 0.8471313181918291,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 85.46446376086631
+        },
+        {
+          "bbox": [
+            895,
+            339,
+            955,
+            399
+          ],
+          "confidence": 0.7890595049327269,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 73.70727786651159
+        },
+        {
+          "bbox": [
+            1193,
+            300,
+            1342,
+            449
+          ],
+          "confidence": 0.7868624174954925,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 73.26245680830799
+        },
+        {
+          "bbox": [
+            764,
+            573,
+            814,
+            623
+          ],
+          "confidence": 0.7171054190525001,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 59.13949504599512
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "small_group",
+      "raw_detections": 6,
+      "success": true
+    }
+  },
+  "Test10": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 1,
+      "processing_time": 0.575,
+      "faces": [
+        {
+          "bbox": [
+            731,
+            298,
+            1095,
+            662
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 1,
+      "processing_time": 0.499,
+      "faces": [
+        {
+          "bbox": [
+            731,
+            298,
+            1095,
+            662
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 1,
+      "processing_time": 0.498,
+      "faces": [
+        {
+          "bbox": [
+            731,
+            298,
+            1095,
+            662
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 2,
+      "processing_time": 1.157,
+      "faces": [
+        {
+          "bbox": [
+            731,
+            298,
+            1098,
+            665
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 94.88282376437571
+        },
+        {
+          "bbox": [
+            1243,
+            574,
+            1360,
+            691
+          ],
+          "confidence": 0.7715976590195717,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 77.37921081858634
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "pair",
+      "raw_detections": 2,
+      "success": true
+    }
+  },
+  "Test11": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 0.993,
+      "faces": [
+        {
+          "bbox": [
+            1228,
+            752,
+            1285,
+            809
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            941,
+            321,
+            1174,
+            554
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.841,
+      "faces": [
+        {
+          "bbox": [
+            1228,
+            752,
+            1285,
+            809
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            941,
+            321,
+            1174,
+            554
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.936,
+      "faces": [
+        {
+          "bbox": [
+            1228,
+            752,
+            1285,
+            809
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            941,
+            321,
+            1174,
+            554
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 1,
+      "processing_time": 1.876,
+      "faces": [
+        {
+          "bbox": [
+            945,
+            324,
+            1171,
+            550
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 97.11432375283891
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "single_person",
+      "raw_detections": 1,
+      "success": true
+    }
+  },
+  "Test12": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 0.876,
+      "faces": [
+        {
+          "bbox": [
+            635,
+            279,
+            810,
+            454
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            573,
+            498,
+            759,
+            684
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.762,
+      "faces": [
+        {
+          "bbox": [
+            635,
+            279,
+            810,
+            454
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            573,
+            498,
+            759,
+            684
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.774,
+      "faces": [
+        {
+          "bbox": [
+            635,
+            279,
+            810,
+            454
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            573,
+            498,
+            759,
+            684
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 2,
+      "processing_time": 1.412,
+      "faces": [
+        {
+          "bbox": [
+            635,
+            277,
+            814,
+            456
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 99.33077931400393
+        },
+        {
+          "bbox": [
+            578,
+            499,
+            763,
+            684
+          ],
+          "confidence": 0.8364366977967674,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 96.16077136596056
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "pair",
+      "raw_detections": 2,
+      "success": true
+    }
+  },
+  "Test13": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 1,
+      "processing_time": 0.823,
+      "faces": [
+        {
+          "bbox": [
+            872,
+            317,
+            1055,
+            500
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 1,
+      "processing_time": 0.729,
+      "faces": [
+        {
+          "bbox": [
+            872,
+            317,
+            1055,
+            500
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 1,
+      "processing_time": 0.789,
+      "faces": [
+        {
+          "bbox": [
+            872,
+            317,
+            1055,
+            500
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 1,
+      "processing_time": 1.699,
+      "faces": [
+        {
+          "bbox": [
+            872,
+            318,
+            1054,
+            500
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 96.96601406834924
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "single_person",
+      "raw_detections": 1,
+      "success": true
+    }
+  },
+  "Test14": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 2,
+      "processing_time": 1.057,
+      "faces": [
+        {
+          "bbox": [
+            826,
+            277,
+            1033,
+            484
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            547,
+            389,
+            766,
+            608
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.99,
+      "faces": [
+        {
+          "bbox": [
+            826,
+            277,
+            1033,
+            484
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            547,
+            389,
+            766,
+            608
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 2,
+      "processing_time": 0.886,
+      "faces": [
+        {
+          "bbox": [
+            826,
+            277,
+            1033,
+            484
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        },
+        {
+          "bbox": [
+            547,
+            389,
+            766,
+            608
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 2,
+      "processing_time": 1.797,
+      "faces": [
+        {
+          "bbox": [
+            545,
+            388,
+            768,
+            611
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 90.67215266129047
+        },
+        {
+          "bbox": [
+            824,
+            276,
+            1037,
+            489
+          ],
+          "confidence": 0.8339496754420408,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 87.24787624109628
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "pair",
+      "raw_detections": 2,
+      "success": true
+    }
+  },
+  "Test15": {
+    "opencv_haar": {
+      "model_type": "opencv_haar",
+      "faces_detected": 1,
+      "processing_time": 0.878,
+      "faces": [
+        {
+          "bbox": [
+            821,
+            302,
+            1027,
+            508
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "OpenCV Haar (0MB) - Fallback method",
+      "success": true
+    },
+    "tiny_yolo": {
+      "model_type": "tiny_yolo",
+      "faces_detected": 1,
+      "processing_time": 0.757,
+      "faces": [
+        {
+          "bbox": [
+            821,
+            302,
+            1027,
+            508
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "enhanced_yolo": {
+      "model_type": "enhanced_yolo",
+      "faces_detected": 1,
+      "processing_time": 0.765,
+      "faces": [
+        {
+          "bbox": [
+            821,
+            302,
+            1027,
+            508
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback"
+        }
+      ],
+      "model_size_mb": 0,
+      "model_description": "Unknown",
+      "success": true
+    },
+    "intelligent_universal": {
+      "model_type": "intelligent_universal",
+      "faces_detected": 1,
+      "processing_time": 1.524,
+      "faces": [
+        {
+          "bbox": [
+            823,
+            304,
+            1023,
+            504
+          ],
+          "confidence": 0.85,
+          "model_used": "opencv_fallback",
+          "strategy_quality": 97.78802875
+        }
+      ],
+      "strategy_used": "conservative",
+      "detection_scenario": "single_person",
+      "raw_detections": 1,
+      "success": true
+    }
+  }
+}

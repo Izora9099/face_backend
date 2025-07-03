@@ -1,3 +1,4 @@
+# core/image_enhancer.py
 import cv2
 import numpy as np
 from skimage import exposure, restoration, filters
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 class ImageEnhancer:
     """
     Handles image preprocessing for poor quality images
-    before YOLO detection
+    before YOLO detection - optimized for limited storage
     """
     
     def __init__(self):
@@ -136,7 +137,7 @@ class ImageEnhancer:
             return 50
             
     def _deblur_image(self, image):
-        """Apply deblurring filter"""
+        """Apply deblurring filter - lightweight for storage constraints"""
         try:
             kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
             return cv2.filter2D(image, -1, kernel)
@@ -144,14 +145,14 @@ class ImageEnhancer:
             return image
             
     def _denoise_image(self, image):
-        """Apply noise reduction"""
+        """Apply noise reduction - fast method for storage constraints"""
         try:
-            return cv2.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
+            return cv2.bilateralFilter(image, 9, 75, 75)  # Faster than fastNlMeans
         except:
             return image
             
     def _enhance_contrast(self, image):
-        """Enhance image contrast"""
+        """Enhance image contrast using CLAHE"""
         try:
             # Convert to LAB color space
             lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
@@ -178,7 +179,7 @@ class ImageEnhancer:
     def _histogram_equalization(self, image):
         """Apply histogram equalization"""
         try:
-            # Convert to YUV
+            # Convert to YUV for better results
             yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
             yuv[:,:,0] = cv2.equalizeHist(yuv[:,:,0])
             return cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)

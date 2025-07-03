@@ -2467,3 +2467,131 @@ def hof_system_status(request):
             'error': str(e)
         }, status=500)
 
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def detect_faces_single_person(request):
+    """
+    API endpoint specifically for single-person detection (e.g., student registration)
+    """
+    try:
+        if 'image' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'error': 'No image file provided'
+            }, status=400)
+            
+        image_file = request.FILES['image']
+        
+        if image_file.size > 10 * 1024 * 1024:
+            return JsonResponse({
+                'success': False,
+                'error': 'Image file too large. Maximum size is 10MB.'
+            }, status=400)
+        
+        import tempfile
+        import uuid
+        temp_filename = f"single_person_{uuid.uuid4()}.jpg"
+        temp_dir = getattr(settings, 'HOF_TEMP_DIR', '/tmp')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, temp_filename)
+        
+        try:
+            with open(temp_path, 'wb+') as destination:
+                for chunk in image_file.chunks():
+                    destination.write(chunk)
+            
+            # Use single-person mode explicitly
+            from core.adaptive_detector import AdaptiveFaceDetector
+            detector = AdaptiveFaceDetector()
+            faces, metrics = detector.detect_faces_adaptive(
+                temp_path, 
+                return_metrics=True, 
+                single_person_mode=True  # FORCE single-person mode
+            )
+            
+            # Enhanced response for single-person scenarios
+            response_data = {
+                'success': True,
+                'faces_detected': len(faces),
+                'faces': faces,
+                'metrics': metrics,
+                'single_person_result': self._analyze_single_person_result(faces, metrics),
+                'recommendations': self._get_single_person_recommendations(faces, metrics)
+            }
+                
+            return JsonResponse(response_data)
+            
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            
+    except Exception as e:
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+        return JsonResponse({
+            'success': False,
+            'error': f'Single-person detection failed: {str(e)}'
+        }, status=500)
+
+def _analyze_single_person_result(self, faces, metrics):
+    """Analyze result for single-person scenarios"""
+    if len(faces) == 0:
+        return {
+            'status': 'no_face',
+            'message': 'No face detected',
+            'action': 'retake_photo'
+        }
+    elif len(faces) == 1:
+        face = faces[0]
+        quality = face.get('region_quality', 50)
+        confidence = face.get('confidence', 0.5)
+        
+        if quality > 70 and confidence > 0.6:
+            return {
+                'status': 'excellent',
+                'message': 'Perfect single face detected',
+                'action': 'proceed'
+            }
+        elif quality > 40 and confidence > 0.4:
+            return {
+                'status': 'good',
+                'message': 'Good single face detected',
+                'action': 'proceed'
+            }
+        else:
+            return {
+                'status': 'poor_quality',
+                'message': 'Face detected but quality is low',
+                'action': 'improve_lighting'
+            }
+    else:
+        return {
+            'status': 'multiple_faces',
+            'message': f'{len(faces)} faces detected',
+            'action': 'ensure_single_person'
+        }
+
+def _get_single_person_recommendations(self, faces, metrics):
+    """Get recommendations for single-person photos"""
+    recommendations = []
+    
+    if len(faces) == 0:
+        if metrics['quality_score'] < 40:
+            recommendations.append("Image quality is low. Try better lighting.")
+        recommendations.append("Ensure your face is clearly visible and centered.")
+        recommendations.append("Move closer to the camera if too far away.")
+        
+    elif len(faces) == 1:
+        face = faces[0]
+        if face.get('region_quality', 50) < 50:
+            recommendations.append("Face quality could be improved with better lighting.")
+        if face.get('confidence', 0.5) < 0.5:
+            recommendations.append("Face detection confidence is low. Ensure face is clearly visible.")
+            
+    else:
+        recommendations.append(f"Multiple faces detected ({len(faces)}). Ensure only one person is in the photo.")
+        recommendations.append("Other people should move out of the frame.")
+        
+    return recommendations

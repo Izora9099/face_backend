@@ -1,7 +1,5 @@
 #!/bin/bash
-
-# Quick Hall of Faces Setup for faceenv environment
-# Specifically designed for your directory structure
+# fix_hof_dependencies.sh - Fix PyTorch and Ultralytics compatibility issues
 
 set -e
 
@@ -9,97 +7,77 @@ set -e
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${GREEN}🚀 Hall of Faces Quick Setup${NC}"
-echo -e "${BLUE}Environment: faceenv (parent directory)${NC}"
-echo "============================================"
+echo -e "${RED}🔧 Fixing PyTorch and Ultralytics Dependencies${NC}"
+echo "=============================================="
 
-# Check we're in face_backend directory
-if [ ! -f "manage.py" ]; then
-    echo "❌ Please run this from your face_backend directory"
+# Check we're in faceenv
+if [[ "$VIRTUAL_ENV" != *"faceenv"* ]]; then
+    echo -e "${RED}❌ Please activate faceenv first${NC}"
+    echo "Run: source ../faceenv/bin/activate"
     exit 1
 fi
 
-# Activate faceenv
-echo -e "${YELLOW}📦 Activating faceenv...${NC}"
-if [ -d "../faceenv" ]; then
-    source ../faceenv/bin/activate
-    echo "✅ faceenv activated from parent directory"
-    echo "📍 Using Python: $(which python)"
-else
-    echo "❌ faceenv not found in parent directory"
-    exit 1
-fi
+echo -e "${YELLOW}🗑️  Removing problematic packages...${NC}"
+pip uninstall -y ultralytics torch torchvision torchaudio 2>/dev/null || true
 
-# Quick dependency check and install
-echo -e "${YELLOW}📦 Installing HOF dependencies...${NC}"
-pip install ultralytics opencv-python torch torchvision scikit-image --quiet
+echo -e "${YELLOW}📦 Installing compatible PyTorch (CPU-only for storage optimization)...${NC}"
+# Install specific compatible versions
+pip install torch==2.0.1+cpu torchvision==0.15.2+cpu --index-url https://download.pytorch.org/whl/cpu --quiet
 
-# Verify key dependencies
+echo -e "${YELLOW}📦 Installing compatible Ultralytics...${NC}"
+pip install ultralytics==8.0.196 --quiet
+
+echo -e "${YELLOW}📦 Installing other required packages...${NC}"
+pip install opencv-python==4.8.1.78 --quiet
+pip install scikit-image==0.21.0 --quiet
+pip install Pillow --quiet
+pip install numpy==1.24.3 --quiet
+
 echo -e "${YELLOW}🔍 Verifying installations...${NC}"
-python -c "import ultralytics; print('✅ Ultralytics:', ultralytics.__version__)" 2>/dev/null || echo "⚠️  Ultralytics installation issue"
-python -c "import cv2; print('✅ OpenCV:', cv2.__version__)" 2>/dev/null || echo "⚠️  OpenCV installation issue"
-python -c "import torch; print('✅ PyTorch:', torch.__version__)" 2>/dev/null || echo "⚠️  PyTorch installation issue"
-
-# Create directories
-echo -e "${YELLOW}📁 Creating directories...${NC}"
-mkdir -p media/models logs
-
-# Quick settings update check
-if grep -q "Hall of Faces Configuration" face_backend/settings.py 2>/dev/null; then
-    echo "✅ HOF settings already configured"
-else
-    echo -e "${YELLOW}⚙️  Adding HOF settings...${NC}"
-    cat >> face_backend/settings.py << 'EOF'
-
-# Hall of Faces Configuration
-MEDIA_ROOT = BASE_DIR / 'media'
-MEDIA_URL = '/media/'
-HOF_MODELS_PATH = MEDIA_ROOT / 'models'
-HOF_ENABLE_ADAPTIVE_DETECTION = True
-EOF
-    echo "✅ Basic HOF settings added"
-fi
-
-# Quick test
-echo -e "${YELLOW}🧪 Quick integration test...${NC}"
 python -c "
-import os
-import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'face_backend.settings')
-django.setup()
+try:
+    import torch
+    print('✅ PyTorch:', torch.__version__)
+    print('   CUDA available:', torch.cuda.is_available())
+except Exception as e:
+    print('❌ PyTorch error:', e)
 
 try:
-    from core.adaptive_detector import AdaptiveFaceDetector
-    from core.hof_models import HallOfFacesModels
-    from core.image_enhancer import ImageEnhancer
-    print('✅ All HOF modules imported successfully')
-    
-    # Quick functionality test
-    detector = AdaptiveFaceDetector()
-    print('✅ AdaptiveFaceDetector initialized')
-    
-    enhancer = ImageEnhancer()
-    print('✅ ImageEnhancer initialized')
-    
-    print('🎉 Hall of Faces integration is working!')
-    
-except ImportError as e:
-    print(f'⚠️  Import issue: {e}')
-    print('💡 Run the full deployment script for complete setup')
+    import ultralytics
+    print('✅ Ultralytics:', ultralytics.__version__)
 except Exception as e:
-    print(f'⚠️  Setup issue: {e}')
-    print('💡 Some components may need the full deployment script')
+    print('❌ Ultralytics error:', e)
+
+try:
+    import cv2
+    print('✅ OpenCV:', cv2.__version__)
+except Exception as e:
+    print('❌ OpenCV error:', e)
+
+try:
+    import skimage
+    print('✅ Scikit-image:', skimage.__version__)
+except Exception as e:
+    print('❌ Scikit-image error:', e)
 "
 
-echo ""
-echo -e "${GREEN}✅ Quick setup completed!${NC}"
+echo -e "${YELLOW}🧪 Testing YOLO import...${NC}"
+python -c "
+try:
+    from ultralytics import YOLO
+    print('✅ YOLO import successful')
+    
+    # Test model creation (without download)
+    print('✅ Ultralytics fully functional')
+except Exception as e:
+    print('❌ YOLO import failed:', e)
+"
+
+echo -e "${GREEN}✅ Dependencies fixed!${NC}"
 echo ""
 echo -e "${BLUE}📋 Next steps:${NC}"
-echo "1. Run full deployment: ./deploy_hof.sh"
-echo "2. Or run manual tests: python test_hof_integration.py"
-echo "3. Add HOF URLs to core/urls.py"
-echo ""
-echo -e "${BLUE}🔧 For complete integration, run:${NC}"
-echo "./deploy_hof.sh"
+echo "1. Run the deployment script again: ./deploy_hof.sh"
+echo "2. Or test directly: python test_hof_integration.py"

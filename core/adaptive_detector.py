@@ -1,6 +1,7 @@
+# core/adaptive_detector.py - Updated for YOLO models with intelligent filtering
 from .hof_models import HallOfFacesModels
 from .image_enhancer import ImageEnhancer
-from .face_utils import compare_faces  # Your existing function
+from .intelligent_face_detector import IntelligentFaceDetector
 import cv2
 import numpy as np
 import time
@@ -10,42 +11,33 @@ logger = logging.getLogger(__name__)
 
 class AdaptiveFaceDetector:
     """
-    Implements 3-tier adaptive face detection system:
-    1. Tiny YOLO for clear images (fast)
-    2. Enhanced YOLO for moderate quality
-    3. Preprocessing + Enhanced YOLO for poor quality
+    YOLO-powered adaptive face detection with intelligent filtering
+    Seamlessly integrated with your existing smart systems
     """
     
     def __init__(self):
         self.hof_models = HallOfFacesModels()
         self.enhancer = ImageEnhancer()
+        self.intelligent_detector = IntelligentFaceDetector()
         
-        # Quality thresholds for tier selection
+        # Updated thresholds optimized for YOLO
         self.quality_thresholds = {
-            'excellent': 85,  # Use Tiny YOLO
-            'good': 60,       # Use Enhanced YOLO
-            'acceptable': 30, # Use Preprocessing + Enhanced YOLO
-            'poor': 0         # Try all methods
+            'excellent': 85,  # Use fast YOLO model
+            'good': 60,       # Use accurate YOLO model  
+            'acceptable': 30, # Use preprocessing + YOLO
+            'poor': 0         # Use all methods including fallback
         }
         
-        # Download models on initialization
+        # Download YOLO models
         self.hof_models.download_models()
         
     def detect_faces_adaptive(self, image_path_or_array, return_metrics=False):
         """
-        Main adaptive detection method
-        
-        Args:
-            image_path_or_array: Image file path or numpy array
-            return_metrics: Whether to return performance metrics
-            
-        Returns:
-            List of detected faces with bounding boxes and confidence
-            Optional: Performance metrics if return_metrics=True
+        YOLO-powered adaptive detection with your existing intelligence
         """
         start_time = time.time()
         
-        # Load image if path provided
+        # Load image
         if isinstance(image_path_or_array, str):
             image = cv2.imread(image_path_or_array)
             if image is None:
@@ -57,65 +49,80 @@ class AdaptiveFaceDetector:
         # Assess image quality
         quality_score = self.enhancer.assess_image_quality(image)
         
-        # Select detection tier based on quality
-        tier_used, faces = self._select_and_execute_tier(image, quality_score)
+        # Select YOLO tier based on quality
+        tier_used, raw_faces = self._select_yolo_tier(image, quality_score)
+        
+        # Apply your existing intelligent filtering
+        final_faces, intelligent_debug = self.intelligent_detector.detect_optimal_faces(
+            raw_faces, image, return_debug_info=True
+        )
         
         processing_time = time.time() - start_time
+        
+        # Determine scenario
+        scenario = self._determine_scenario(final_faces, image, intelligent_debug)
         
         metrics = {
             'quality_score': quality_score,
             'tier_used': tier_used,
             'processing_time': processing_time,
-            'faces_detected': len(faces),
-            'image_shape': image.shape
+            'raw_detections': len(raw_faces),
+            'faces_detected': len(final_faces),
+            'detection_scenario': scenario,
+            'intelligent_debug': intelligent_debug,
+            'image_shape': image.shape,
+            'strategy_used': intelligent_debug.get('final_strategy', 'unknown'),
+            'yolo_enabled': True,
+            'model_info': self.hof_models.get_model_info()
         }
         
-        logger.info(f"Adaptive detection: {len(faces)} faces, "
-                   f"quality={quality_score:.1f}, tier={tier_used}, "
-                   f"time={processing_time:.2f}s")
+        logger.info(f"YOLO adaptive detection: {len(raw_faces)} raw → {len(final_faces)} final faces "
+                   f"({scenario}, {tier_used}), quality={quality_score:.1f}, time={processing_time:.2f}s")
         
         if return_metrics:
-            return faces, metrics
-        return faces
+            return final_faces, metrics
+        return final_faces
         
-    def _select_and_execute_tier(self, image, quality_score):
-        """Select appropriate detection tier and execute"""
+    def _select_yolo_tier(self, image, quality_score):
+        """Select optimal YOLO model based on image quality"""
+        
+        model_info = self.hof_models.get_model_info()
+        primary_model = model_info.get('primary_model', 'yolov8n_face')
+        secondary_model = model_info.get('secondary_model', 'yolov8n_face')
         
         if quality_score >= self.quality_thresholds['excellent']:
-            # Tier 1: Tiny YOLO for excellent quality
-            tier_used = 'tier_1_tiny_yolo'
-            faces = self.hof_models.detect_faces(image, 'tiny_yolo')
+            # Excellent quality: use fast model
+            tier_used = f'tier_1_yolo_fast_{primary_model}'
+            faces = self.hof_models.detect_faces(image, primary_model)
             
         elif quality_score >= self.quality_thresholds['good']:
-            # Tier 2: Enhanced YOLO for good quality
-            tier_used = 'tier_2_enhanced_yolo'
-            faces = self.hof_models.detect_faces(image, 'enhanced_yolo')
+            # Good quality: use accurate model
+            tier_used = f'tier_2_yolo_accurate_{secondary_model}'
+            faces = self.hof_models.detect_faces(image, secondary_model)
             
         elif quality_score >= self.quality_thresholds['acceptable']:
-            # Tier 3: Preprocessing + Enhanced YOLO
-            tier_used = 'tier_3_preprocessing_enhanced'
+            # Acceptable quality: enhance then detect
+            tier_used = f'tier_3_enhanced_yolo_{secondary_model}'
             enhanced_image = self.enhancer.enhance_image(image, quality_score)
-            faces = self.hof_models.detect_faces(enhanced_image, 'enhanced_yolo')
+            faces = self.hof_models.detect_faces(enhanced_image, secondary_model)
             
         else:
-            # Very poor quality: Try progressive enhancement
-            tier_used = 'tier_4_progressive'
-            faces = self._progressive_detection(image, quality_score)
+            # Poor quality: progressive detection with fallback
+            tier_used = 'tier_4_progressive_yolo_fallback'
+            faces = self._progressive_yolo_detection(image, quality_score, primary_model, secondary_model)
             
         return tier_used, faces
         
-    def _progressive_detection(self, image, quality_score):
-        """
-        Progressive detection for very poor quality images
-        Try multiple approaches and return best result
-        """
+    def _progressive_yolo_detection(self, image, quality_score, primary_model, secondary_model):
+        """Progressive detection: try YOLO models, fallback to OpenCV"""
         best_faces = []
         best_count = 0
         
         methods = [
-            ('tiny_yolo', image),
-            ('enhanced_yolo', image),
-            ('enhanced_yolo', self.enhancer.enhance_image(image, quality_score))
+            (primary_model, image),
+            (secondary_model, image),
+            (secondary_model, self.enhancer.enhance_image(image, quality_score)),
+            ('opencv_haar', image)  # Final fallback
         ]
         
         for model_type, img in methods:
@@ -124,91 +131,46 @@ class AdaptiveFaceDetector:
                 if len(faces) > best_count:
                     best_faces = faces
                     best_count = len(faces)
+                    if len(faces) > 0:  # Stop at first successful detection
+                        break
             except Exception as e:
                 logger.warning(f"Progressive detection failed for {model_type}: {e}")
                 continue
                 
         return best_faces
         
-    def recognize_face_adaptive(self, image, known_encodings, known_names, 
-                              tolerance=0.6, return_all_matches=False):
-        """
-        Adaptive face recognition combining detection and recognition
+    def _determine_scenario(self, faces, image, debug_info):
+        """Determine detection scenario (unchanged from your existing code)"""
+        face_count = len(faces)
         
-        Args:
-            image: Input image (array or path)
-            known_encodings: List of known face encodings
-            known_names: List of corresponding names
-            tolerance: Recognition tolerance (lower = stricter)
-            return_all_matches: Return all matches or just best
+        if face_count == 0:
+            return 'no_faces'
+        elif face_count == 1:
+            return 'single_person'
+        elif face_count == 2:
+            return 'pair'
+        elif 3 <= face_count <= 5:
+            return 'small_group'
+        elif 6 <= face_count <= 15:
+            return 'large_group'
+        else:
+            return 'crowd'
             
-        Returns:
-            List of recognition results with confidence and location
-        """
-        # Detect faces adaptively
-        faces = self.detect_faces_adaptive(image)
-        
-        if not faces:
-            return []
-            
-        recognition_results = []
-        
-        for face in faces:
-            try:
-                # Extract face region
-                x1, y1, x2, y2 = face['bbox']
-                
-                # Load image if path
-                if isinstance(image, str):
-                    img = cv2.imread(image)
-                else:
-                    img = image
-                    
-                face_region = img[y1:y2, x1:x2]
-                
-                # Generate encoding for this face
-                # You'll need to adapt this to work with your existing face_utils
-                face_encoding = self._generate_encoding(face_region)
-                
-                if face_encoding is not None:
-                    # Compare with known faces
-                    best_match = self._find_best_match(
-                        face_encoding, known_encodings, known_names, tolerance
-                    )
-                    
-                    if best_match:
-                        recognition_results.append({
-                            'name': best_match['name'],
-                            'confidence': best_match['confidence'],
-                            'bbox': face['bbox'],
-                            'detection_confidence': face['confidence'],
-                            'model_used': face['model_used']
-                        })
-                        
-            except Exception as e:
-                logger.error(f"Face recognition failed for detected face: {e}")
-                continue
-                
-        return recognition_results
-        
-    def _generate_encoding(self, face_image):
-        """Generate face encoding - adapt this to your existing system"""
-        # This should integrate with your existing face_utils.py
-        # For now, return None - you'll implement this based on your current setup
-        logger.warning("Face encoding generation not implemented yet")
-        return None
-        
-    def _find_best_match(self, face_encoding, known_encodings, known_names, tolerance):
-        """Find best matching face - adapt this to your existing system"""
-        # This should integrate with your existing compare_faces function
-        logger.warning("Face matching not implemented yet")
-        return None
-        
     def get_system_status(self):
-        """Get status of the adaptive detection system"""
+        """Get comprehensive system status"""
+        model_info = self.hof_models.get_model_info()
+        
         return {
-            'models_loaded': list(self.hof_models.models.keys()),
-            'current_model': self.hof_models.current_model,
+            'detection_mode': 'yolo_intelligent_adaptive',
+            'yolo_enabled': True,
+            'models_loaded': model_info['loaded_models'],
+            'current_model': model_info['current_model'],
+            'setup_type': model_info.get('setup_type', 'Unknown'),
+            'primary_model': model_info.get('primary_model', 'Unknown'),
+            'secondary_model': model_info.get('secondary_model', 'Unknown'),
+            'total_storage_mb': model_info['total_size_mb'],
             'quality_thresholds': self.quality_thresholds,
-            'enhancer_methods': list(self.enhancer.enhancement_methods.keys())
+            'intelligent_filtering_enabled': True,
+            'supports_scenarios': ['single_person', 'pair', 'small_group', 'large_group', 'crowd'],
+            'fallback_available': model_info['available_models'].get('opencv_haar', {}).get('exists', False)
         }
