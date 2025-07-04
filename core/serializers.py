@@ -182,20 +182,22 @@ class AttendanceListSerializer(serializers.ModelSerializer):
                  'check_in_time', 'check_out_time', 'date']
 
 class AttendanceCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating attendance records"""
+    """Enhanced serializer for creating attendance records with auto-enrollment"""
+    
     class Meta:
         model = AttendanceRecord
-        fields = ['student', 'course', 'status', 'recognition_model']
+        fields = ['student', 'course', 'status', 'notes', 'check_in_time']
     
     def validate(self, data):
         student = data.get('student')
         course = data.get('course')
         
-        # Check if student is enrolled in the course
-        if course and student and not student.enrolled_courses.filter(id=course.id).exists():
-            raise serializers.ValidationError(
-                "Student is not enrolled in this course."
-            )
+        if student and course:
+            # Check if student is enrolled in the course
+            if not course.enrolled_students.filter(id=student.id).exists():
+                # Auto-enroll the student
+                course.enrolled_students.add(student)
+                print(f"✅ Auto-enrolled student {student.full_name} in course {course.course_name}")
         
         return data
 

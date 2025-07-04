@@ -489,37 +489,6 @@ class AttendanceViewSet(ModelViewSet):
     queryset = AttendanceRecord.objects.select_related('student', 'course').all()
     permission_classes = [IsAuthenticated]
     
-    def get_queryset(self):
-        queryset = AttendanceRecord.objects.select_related('student', 'course').all()
-        
-        # Filter by teacher access
-        user = self.request.user
-        if hasattr(user, 'role') and user.role == 'teacher':
-            queryset = queryset.filter(course__teachers=user)
-        
-        # Additional filters
-        course_id = self.request.query_params.get('course')
-        if course_id:
-            queryset = queryset.filter(course_id=course_id)
-        
-        student_id = self.request.query_params.get('student')
-        if student_id:
-            queryset = queryset.filter(student_id=student_id)
-        
-        date_from = self.request.query_params.get('date_from')
-        if date_from:
-            queryset = queryset.filter(attendance_date__gte=date_from)
-        
-        date_to = self.request.query_params.get('date_to')
-        if date_to:
-            queryset = queryset.filter(attendance_date__lte=date_to)
-        
-        status_filter = self.request.query_params.get('status')
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-        
-        return queryset.order_by('-check_in_time')
-    
     def get_serializer_class(self):
         if self.action == 'create':
             return AttendanceCreateSerializer
@@ -527,14 +496,31 @@ class AttendanceViewSet(ModelViewSet):
             return AttendanceListSerializer
         return AttendanceRecordSerializer
     
-    def perform_create(self, serializer):
-        serializer.save()
-        log_user_activity(
-            self.request.user, 'MARK_ATTENDANCE', 'attendance',
-            f"Marked attendance for: {serializer.instance.student.full_name}",
-            self.request
-        )
-
+    def create(self, request, *args, **kwargs):
+        """Enhanced create method with better error handling"""
+        serializer = self.get_serializer(data=request.data)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+            attendance_record = serializer.save()
+            
+            # Log the activity
+            log_user_activity(
+                request.user, 'MARK_ATTENDANCE', 'attendance',
+                f"Marked attendance for: {attendance_record.student.full_name}",
+                request
+            )
+            
+            return Response(
+                AttendanceRecordSerializer(attendance_record).data,
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            print(f"❌ Error creating attendance record: {e}")
+            return Response(
+                {'error': str(e), 'details': 'Failed to mark attendance'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 # --------------------------
 # Legacy Function-Based Views (Updated)
 # --------------------------
@@ -1046,7 +1032,8 @@ def get_students(request):
             'matric_number': student.matric_number,
             'email': student.email,
             'department': student.department.department_name,
-            'specialization': student.specialization.specialization_name,
+            # FIX: Handle None specialization
+            'specialization': student.specialization.specialization_name if student.specialization else None,
             'level': student.level.level_name,
             'student_class': f"{student.department.department_code}-{student.level.level_name}",  # Legacy
             'attendance_rate': float(student.attendance_rate),
@@ -1054,7 +1041,6 @@ def get_students(request):
         })
     
     return Response(student_data)
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_attendance_records(request):
