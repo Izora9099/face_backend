@@ -179,3 +179,44 @@ def get_client_ip(request):
     return ip
 
 from .views import log_user_activity
+
+class APICSRFExemptMiddleware:
+    """
+    Middleware to exempt API endpoints from CSRF protection
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # List of API endpoints to exempt from CSRF
+        exempt_paths = [
+            '/admin-users/',
+            '/admin-users/create/',
+            '/sessions/start/',
+            '/sessions/end/',
+            '/attendance/checkin/',
+            '/register-student/',
+            '/recognize-face/',
+            '/api/',
+        ]
+        
+        # Check if the request path starts with any exempt path
+        for path in exempt_paths:
+            if request.path.startswith(path):
+                setattr(request, '_dont_enforce_csrf_checks', True)
+                break
+        
+        # Also exempt any path that contains 'api' or common API patterns
+        if ('/api/' in request.path or 
+            request.path.startswith('/students/') or
+            request.path.startswith('/courses/') or
+            request.path.startswith('/departments/') or
+            request.path.startswith('/specializations/') or
+            request.path.startswith('/attendance/') or
+            request.path.startswith('/security/') or
+            request.path.startswith('/system/') or
+            request.path.startswith('/enrollment/')):
+            setattr(request, '_dont_enforce_csrf_checks', True)
+        
+        response = self.get_response(request)
+        return response

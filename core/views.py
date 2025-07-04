@@ -1,4 +1,6 @@
 # core/views.py
+from rest_framework.permissions import BasePermission
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.core.serializers.json import DjangoJSONEncoder
@@ -88,6 +90,15 @@ import json
 from .adaptive_detector import AdaptiveFaceDetector
 # Get the User model
 User = get_user_model()
+
+class IsAuthenticatedNoCSRF(BasePermission):
+    """
+    Custom permission that checks authentication but bypasses CSRF
+    """
+    def has_permission(self, request, view):
+        # Bypass CSRF for this request
+        setattr(request, '_dont_enforce_csrf_checks', True)
+        return request.user and request.user.is_authenticated
 
 # --------------------------
 # Permission Helpers
@@ -1507,7 +1518,8 @@ def get_admin_users(request):
         return Response(admin_users)
     except Exception as e:
         return Response({'error': str(e)}, status=500)@api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedNoCSRF])  # Changed this line
 def create_admin_user(request):
     """Create new admin user"""
     try:

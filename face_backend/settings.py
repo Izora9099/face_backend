@@ -115,6 +115,7 @@ INSTALLED_APPS = [
 
 ]
 
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -125,7 +126,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.ActivityLoggingMiddleware',
-     
 ]
 
 # Security settings
@@ -156,6 +156,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.1.111:3000",
     "http://172.30.62.139:3000",
 ]
+
+# Add this line after your CORS settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080", 
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_CREDENTIALS = True
 
