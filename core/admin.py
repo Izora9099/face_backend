@@ -49,7 +49,7 @@ class StudentAdmin(admin.ModelAdmin):
     search_fields = ['first_name', 'last_name', 'matric_number', 'email']
     ordering = ['first_name', 'last_name']
     filter_horizontal = ['enrolled_courses']
-    readonly_fields = ['full_name', 'attendance_rate', 'created_at', 'updated_at']
+    readonly_fields = ['full_name', 'attendance_rate', 'created_at', 'updated_at', 'registered_on']
     
     fieldsets = (
         ('Personal Information', {
