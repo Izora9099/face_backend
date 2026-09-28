@@ -19,4 +19,7 @@ numpy==2.5.3
 pillow==12.3.0
 
 psutil==7.2.2
+whitenoise==6.12.0
+# PostgreSQL driver (DATABASE_URL=postgres://...); SQLite needs nothing extra
+psycopg[binary]==3.3.6
 gunicorn==23.0.0; sys_platform != "win32"
