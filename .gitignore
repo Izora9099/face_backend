@@ -1,0 +1,72 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+faceenv/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Django runtime data ---
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+media/
+staticfiles/
+logs/
+*.log
+temp/
+tmp/
+
+# --- Biometric data: never commit face images or encodings ---
+datasets/
+*.npy
+*.npz
+debug_*.jpg
+
+# --- Model weights (large binaries, fetched on demand) ---
+*.pt
+*.onnx
+*.h5
+
+# --- Test / tooling caches ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Database backups created by /api/system/backup/create/ ---
+backups/
+
+# --- Generated evaluation reports (regenerate: manage.py evaluate_recognition) ---
+reports/
+
+# --- Local AI-tool state (machine-specific) ---
+.claude/
+.kilo/
+
+# --- Legacy empty submodule folder ---
+hall-of-faces/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Node (accidental npm install at repo root) ---
+node_modules/
+package-lock.json
