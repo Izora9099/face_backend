@@ -66,7 +66,11 @@ def get_active_sessions(request):
 def get_security_statistics(request):
     since = _since(request)
     attempts = LoginAttempt.objects.filter(timestamp__gte=since)
+    activities = UserActivity.objects.filter(timestamp__gte=since)
     return Response({
+        'total_activities': activities.count(),
+        'failed_activities': activities.filter(status='failed').count(),
+        'active_users': activities.values('user').distinct().count(),
         'total_login_attempts': attempts.count(),
         'successful_logins': attempts.filter(success=True).count(),
         'failed_logins': attempts.filter(success=False).count(),

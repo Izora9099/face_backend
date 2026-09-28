@@ -258,9 +258,8 @@ def list_backups(request):
 
 @extend_schema(responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
-@permission_classes([IsAdminRole])
 def recognition_report(request):
-    """Latest `evaluate_recognition` results (benchmark statistics), if generated."""
+    """Latest `evaluate_recognition` results (aggregate benchmark statistics, any role)."""
     path = settings.BASE_DIR / 'reports' / 'recognition_eval.json'
     if not path.exists():
         return Response({'available': False,

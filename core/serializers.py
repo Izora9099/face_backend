@@ -509,10 +509,16 @@ class RecognitionResponseSerializer(serializers.Serializer):
 # --------------------------
 class UserActivitySerializer(serializers.ModelSerializer):
     user = serializers.CharField(source='user.username', read_only=True)
+    user_full_name = serializers.CharField(source='user.full_name', read_only=True)
+    user_role = serializers.SerializerMethodField()
 
     class Meta:
         model = UserActivity
-        fields = ['id', 'user', 'action', 'resource', 'resource_id', 'details', 'ip_address', 'status', 'timestamp']
+        fields = ['id', 'user', 'user_full_name', 'user_role', 'action', 'resource', 'resource_id',
+                  'details', 'ip_address', 'status', 'timestamp']
+
+    def get_user_role(self, obj) -> str:
+        return user_role(obj.user)
 
 
 class LoginAttemptSerializer(serializers.ModelSerializer):
@@ -538,6 +544,9 @@ class SecuritySettingsSerializer(serializers.ModelSerializer):
 
 
 class SecurityStatisticsSerializer(serializers.Serializer):
+    total_activities = serializers.IntegerField()
+    failed_activities = serializers.IntegerField()
+    active_users = serializers.IntegerField()
     total_login_attempts = serializers.IntegerField()
     successful_logins = serializers.IntegerField()
     failed_logins = serializers.IntegerField()
@@ -677,9 +686,13 @@ class TeacherBasicSerializer(serializers.ModelSerializer):
 
 
 class CourseBasicSerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source='department.department_name', read_only=True)
+    level_name = serializers.CharField(source='level.level_name', read_only=True)
+
     class Meta:
         model = Course
-        fields = ['id', 'course_code', 'course_name', 'credits', 'level', 'department']
+        fields = ['id', 'course_code', 'course_name', 'credits', 'level', 'level_name',
+                  'department', 'department_name']
 
 
 class TimetableEntrySerializer(serializers.ModelSerializer):
