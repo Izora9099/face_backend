@@ -303,7 +303,7 @@ class Student(models.Model):
         ('suspended', 'Suspended'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-    registration_date = models.DateField(default=timezone.now)  # Changed from auto_now_add
+    registration_date = models.DateField(default=timezone.localdate)
     graduation_date = models.DateField(null=True, blank=True)
     academic_year = models.CharField(max_length=20, default="2024-2025")
     attendance_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
@@ -763,8 +763,10 @@ class AttendanceSession(models.Model):
         return f"Session {self.session_id} - {self.course.course_code} ({self.status})"
     
     def save(self, *args, **kwargs):
-        if not self.expected_end_time and self.start_time:
-            self.expected_end_time = self.start_time + timezone.timedelta(minutes=self.session_duration_minutes)
+        if not self.expected_end_time:
+            # start_time is auto_now_add, so it is still unset before the first insert.
+            start = self.start_time or timezone.now()
+            self.expected_end_time = start + timezone.timedelta(minutes=self.session_duration_minutes)
         
         if not self.total_students_expected:
             self.total_students_expected = self.course.enrolled_students.filter(status='active').count()
@@ -813,12 +815,14 @@ class AttendanceSession(models.Model):
 class SessionCheckIn(models.Model):
     """Individual student check-ins within an attendance session"""
     
+    # Same set and order as AttendanceRecord.STATUS_CHOICES (one API enum).
     STATUS_CHOICES = [
         ('present', 'Present'),
-        ('late', 'Late'),
         ('absent', 'Absent'),
+        ('late', 'Late'),
+        ('excused', 'Excused'),
     ]
-    
+
     # Basic Information
     attendance_session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='session_checkins')
     student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='session_checkins')
@@ -882,32 +886,26 @@ class SessionCheckIn(models.Model):
         self.create_attendance_record()
     
     def create_attendance_record(self):
-        """Create a traditional AttendanceRecord for backward compatibility"""
-        # Map session status to traditional status
-        status_mapping = {
-            'present': 'present',
-            'late': 'late',
-            'absent': 'absent'
-        }
-        
-        attendance_status = status_mapping.get(self.status, 'present')
-        
-        # Check if record already exists
-        existing_record = AttendanceRecord.objects.filter(
+        """Mirror this check-in into the per-day AttendanceRecord (create or update)."""
+        record, created = AttendanceRecord.objects.get_or_create(
             student=self.student,
             course=self.attendance_session.course,
-            attendance_date=self.check_in_time.date()
-        ).first()
-        
-        if not existing_record:
-            AttendanceRecord.objects.create(
-                student=self.student,
-                course=self.attendance_session.course,
-                status=attendance_status,
-                check_in_time=self.check_in_time,
-                attendance_date=self.check_in_time.date(),
-                recognition_model='cnn'
-            )
+            attendance_date=timezone.localdate(self.check_in_time),
+            defaults={
+                'status': self.status,
+                'recognition_confidence': self.recognition_confidence,
+                'recognition_model': 'hog',
+                'notes': self.notes,
+            },
+        )
+        if not created and (record.status != self.status or self.is_manual_override):
+            record.status = self.status
+            if self.recognition_confidence is not None:
+                record.recognition_confidence = self.recognition_confidence
+            if self.notes:
+                record.notes = self.notes
+            record.save(update_fields=['status', 'recognition_confidence', 'notes', 'updated_at'])
+            self.student.calculate_attendance_rate()
 
 # --------------------------
 # Signals for Auto-Assignment
