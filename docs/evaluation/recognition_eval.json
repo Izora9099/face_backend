@@ -1,0 +1,536 @@
+{
+  "generated_at": "2026-09-28T14:13:19.404761+00:00",
+  "dataset": "LFW (Labeled Faces in the Wild), 10-fold pairs protocol",
+  "engine": {
+    "name": "face_recognition",
+    "model": "dlib ResNet-34 (face_recognition_model_v1), 128-d, HOG detector, 5-point alignment",
+    "current_threshold": 0.6
+  },
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 158 Stepping 9, GenuineIntel"
+  },
+  "data": {
+    "pairs_evaluated": 6000,
+    "genuine_pairs": 3000,
+    "impostor_pairs": 3000,
+    "pairs_skipped_unreadable": 0,
+    "images_encoded": 7701,
+    "face_detection_rate": 0.9955,
+    "median_encode_ms": 1013.2
+  },
+  "verification": {
+    "accuracy_kfold_mean": 0.9863,
+    "accuracy_kfold_std": 0.0037,
+    "roc_auc": 0.99611,
+    "eer": 0.0145,
+    "eer_threshold": 0.638,
+    "at_current_threshold": {
+      "threshold": 0.6,
+      "accuracy": 0.9845,
+      "tar": 0.9733,
+      "far": 0.0043,
+      "frr": 0.0267
+    },
+    "genuine_distance": {
+      "mean": 0.4377,
+      "std": 0.0866,
+      "p5": 0.3007,
+      "p95": 0.5735
+    },
+    "impostor_distance": {
+      "mean": 0.83,
+      "std": 0.0877,
+      "p5": 0.6883,
+      "p95": 0.9757
+    },
+    "sweep": [
+      {
+        "threshold": 0.2,
+        "accuracy": 0.5008,
+        "tar": 0.0017,
+        "far": 0.0,
+        "frr": 0.9983
+      },
+      {
+        "threshold": 0.22,
+        "accuracy": 0.5018,
+        "tar": 0.0037,
+        "far": 0.0,
+        "frr": 0.9963
+      },
+      {
+        "threshold": 0.24,
+        "accuracy": 0.505,
+        "tar": 0.01,
+        "far": 0.0,
+        "frr": 0.99
+      },
+      {
+        "threshold": 0.26,
+        "accuracy": 0.5083,
+        "tar": 0.0167,
+        "far": 0.0,
+        "frr": 0.9833
+      },
+      {
+        "threshold": 0.28,
+        "accuracy": 0.5128,
+        "tar": 0.0257,
+        "far": 0.0,
+        "frr": 0.9743
+      },
+      {
+        "threshold": 0.3,
+        "accuracy": 0.5247,
+        "tar": 0.0493,
+        "far": 0.0,
+        "frr": 0.9507
+      },
+      {
+        "threshold": 0.32,
+        "accuracy": 0.5383,
+        "tar": 0.0767,
+        "far": 0.0,
+        "frr": 0.9233
+      },
+      {
+        "threshold": 0.34,
+        "accuracy": 0.5568,
+        "tar": 0.1137,
+        "far": 0.0,
+        "frr": 0.8863
+      },
+      {
+        "threshold": 0.36,
+        "accuracy": 0.5877,
+        "tar": 0.1753,
+        "far": 0.0,
+        "frr": 0.8247
+      },
+      {
+        "threshold": 0.38,
+        "accuracy": 0.6187,
+        "tar": 0.2373,
+        "far": 0.0,
+        "frr": 0.7627
+      },
+      {
+        "threshold": 0.4,
+        "accuracy": 0.6625,
+        "tar": 0.325,
+        "far": 0.0,
+        "frr": 0.675
+      },
+      {
+        "threshold": 0.42,
+        "accuracy": 0.709,
+        "tar": 0.418,
+        "far": 0.0,
+        "frr": 0.582
+      },
+      {
+        "threshold": 0.44,
+        "accuracy": 0.7568,
+        "tar": 0.5137,
+        "far": 0.0,
+        "frr": 0.4863
+      },
+      {
+        "threshold": 0.46,
+        "accuracy": 0.8098,
+        "tar": 0.62,
+        "far": 0.0003,
+        "frr": 0.38
+      },
+      {
+        "threshold": 0.48,
+        "accuracy": 0.8588,
+        "tar": 0.718,
+        "far": 0.0003,
+        "frr": 0.282
+      },
+      {
+        "threshold": 0.5,
+        "accuracy": 0.896,
+        "tar": 0.7923,
+        "far": 0.0003,
+        "frr": 0.2077
+      },
+      {
+        "threshold": 0.52,
+        "accuracy": 0.9263,
+        "tar": 0.853,
+        "far": 0.0003,
+        "frr": 0.147
+      },
+      {
+        "threshold": 0.54,
+        "accuracy": 0.9515,
+        "tar": 0.9037,
+        "far": 0.0007,
+        "frr": 0.0963
+      },
+      {
+        "threshold": 0.56,
+        "accuracy": 0.9662,
+        "tar": 0.9337,
+        "far": 0.0013,
+        "frr": 0.0663
+      },
+      {
+        "threshold": 0.58,
+        "accuracy": 0.9778,
+        "tar": 0.9587,
+        "far": 0.003,
+        "frr": 0.0413
+      },
+      {
+        "threshold": 0.6,
+        "accuracy": 0.9845,
+        "tar": 0.9733,
+        "far": 0.0043,
+        "frr": 0.0267
+      },
+      {
+        "threshold": 0.62,
+        "accuracy": 0.9867,
+        "tar": 0.9813,
+        "far": 0.008,
+        "frr": 0.0187
+      },
+      {
+        "threshold": 0.64,
+        "accuracy": 0.9855,
+        "tar": 0.9863,
+        "far": 0.0153,
+        "frr": 0.0137
+      },
+      {
+        "threshold": 0.66,
+        "accuracy": 0.9817,
+        "tar": 0.9883,
+        "far": 0.025,
+        "frr": 0.0117
+      },
+      {
+        "threshold": 0.68,
+        "accuracy": 0.9755,
+        "tar": 0.9907,
+        "far": 0.0397,
+        "frr": 0.0093
+      },
+      {
+        "threshold": 0.7,
+        "accuracy": 0.9637,
+        "tar": 0.991,
+        "far": 0.0637,
+        "frr": 0.009
+      },
+      {
+        "threshold": 0.72,
+        "accuracy": 0.9472,
+        "tar": 0.9927,
+        "far": 0.0983,
+        "frr": 0.0073
+      },
+      {
+        "threshold": 0.74,
+        "accuracy": 0.9198,
+        "tar": 0.9937,
+        "far": 0.154,
+        "frr": 0.0063
+      },
+      {
+        "threshold": 0.76,
+        "accuracy": 0.8933,
+        "tar": 0.995,
+        "far": 0.2083,
+        "frr": 0.005
+      },
+      {
+        "threshold": 0.78,
+        "accuracy": 0.8557,
+        "tar": 0.9957,
+        "far": 0.2843,
+        "frr": 0.0043
+      },
+      {
+        "threshold": 0.8,
+        "accuracy": 0.8132,
+        "tar": 0.996,
+        "far": 0.3697,
+        "frr": 0.004
+      },
+      {
+        "threshold": 0.82,
+        "accuracy": 0.7658,
+        "tar": 0.9967,
+        "far": 0.465,
+        "frr": 0.0033
+      },
+      {
+        "threshold": 0.84,
+        "accuracy": 0.724,
+        "tar": 0.9973,
+        "far": 0.5493,
+        "frr": 0.0027
+      },
+      {
+        "threshold": 0.86,
+        "accuracy": 0.6793,
+        "tar": 0.998,
+        "far": 0.6393,
+        "frr": 0.002
+      },
+      {
+        "threshold": 0.88,
+        "accuracy": 0.6438,
+        "tar": 0.9987,
+        "far": 0.711,
+        "frr": 0.0013
+      },
+      {
+        "threshold": 0.9,
+        "accuracy": 0.6038,
+        "tar": 0.9987,
+        "far": 0.791,
+        "frr": 0.0013
+      },
+      {
+        "threshold": 0.92,
+        "accuracy": 0.577,
+        "tar": 0.9993,
+        "far": 0.8453,
+        "frr": 0.0007
+      },
+      {
+        "threshold": 0.94,
+        "accuracy": 0.5548,
+        "tar": 0.9997,
+        "far": 0.89,
+        "frr": 0.0003
+      },
+      {
+        "threshold": 0.96,
+        "accuracy": 0.5355,
+        "tar": 0.9997,
+        "far": 0.9287,
+        "frr": 0.0003
+      },
+      {
+        "threshold": 0.98,
+        "accuracy": 0.5222,
+        "tar": 1.0,
+        "far": 0.9557,
+        "frr": 0.0
+      },
+      {
+        "threshold": 1.0,
+        "accuracy": 0.5138,
+        "tar": 1.0,
+        "far": 0.9723,
+        "frr": 0.0
+      }
+    ]
+  },
+  "recommendation": {
+    "balanced_threshold": 0.625,
+    "balanced_rates": {
+      "tar": 0.9827,
+      "far": 0.009,
+      "frr": 0.0173
+    },
+    "secure_threshold_far_0_1pct": 0.555,
+    "secure_rates": {
+      "tar": 0.924,
+      "far": 0.001,
+      "frr": 0.076
+    },
+    "note": "Set FACE_MATCH_THRESHOLD in .env. Lower = fewer false accepts (impostors) but more students needing a manual override."
+  },
+  "identification": {
+    "at_current_threshold": {
+      "gallery_size": 1559,
+      "genuine_probes": 3420,
+      "rank1_accuracy": 0.9067251461988304,
+      "dir": 0.906140350877193,
+      "false_reject_rate": 0.0023391812865497076,
+      "misidentification_rate": 0.09152046783625731,
+      "impostor_probes": 2722,
+      "fpir": 0.914401175606172
+    },
+    "at_balanced_threshold": {
+      "gallery_size": 1559,
+      "genuine_probes": 3420,
+      "rank1_accuracy": 0.9067251461988304,
+      "dir": 0.9067251461988304,
+      "false_reject_rate": 0.0,
+      "misidentification_rate": 0.0932748538011696,
+      "impostor_probes": 2722,
+      "fpir": 0.9908155767817781
+    },
+    "by_roster_size": [
+      {
+        "roster_size": 10,
+        "threshold": 0.555,
+        "rank1": 0.9644,
+        "dir": 0.9311,
+        "misid": 0.0139,
+        "fpir": 0.0177
+      },
+      {
+        "roster_size": 10,
+        "threshold": 0.6,
+        "rank1": 0.9644,
+        "dir": 0.955,
+        "misid": 0.0167,
+        "fpir": 0.0571
+      },
+      {
+        "roster_size": 25,
+        "threshold": 0.555,
+        "rank1": 0.9871,
+        "dir": 0.9194,
+        "misid": 0.005,
+        "fpir": 0.0333
+      },
+      {
+        "roster_size": 25,
+        "threshold": 0.6,
+        "rank1": 0.9871,
+        "dir": 0.9724,
+        "misid": 0.007,
+        "fpir": 0.1092
+      },
+      {
+        "roster_size": 50,
+        "threshold": 0.555,
+        "rank1": 0.9654,
+        "dir": 0.9089,
+        "misid": 0.0098,
+        "fpir": 0.052
+      },
+      {
+        "roster_size": 50,
+        "threshold": 0.6,
+        "rank1": 0.9654,
+        "dir": 0.9551,
+        "misid": 0.0238,
+        "fpir": 0.2028
+      },
+      {
+        "roster_size": 100,
+        "threshold": 0.555,
+        "rank1": 0.9725,
+        "dir": 0.9235,
+        "misid": 0.0108,
+        "fpir": 0.0941
+      },
+      {
+        "roster_size": 100,
+        "threshold": 0.6,
+        "rank1": 0.9725,
+        "dir": 0.965,
+        "misid": 0.0205,
+        "fpir": 0.3293
+      },
+      {
+        "roster_size": 200,
+        "threshold": 0.555,
+        "rank1": 0.9586,
+        "dir": 0.9146,
+        "misid": 0.0189,
+        "fpir": 0.1482
+      },
+      {
+        "roster_size": 200,
+        "threshold": 0.6,
+        "rank1": 0.9586,
+        "dir": 0.9537,
+        "misid": 0.0349,
+        "fpir": 0.481
+      },
+      {
+        "roster_size": 500,
+        "threshold": 0.555,
+        "rank1": 0.9408,
+        "dir": 0.9076,
+        "misid": 0.0344,
+        "fpir": 0.2693
+      },
+      {
+        "roster_size": 500,
+        "threshold": 0.6,
+        "rank1": 0.9408,
+        "dir": 0.9385,
+        "misid": 0.055,
+        "fpir": 0.717
+      },
+      {
+        "roster_size": 1000,
+        "threshold": 0.555,
+        "rank1": 0.9195,
+        "dir": 0.8976,
+        "misid": 0.0554,
+        "fpir": 0.4006
+      },
+      {
+        "roster_size": 1000,
+        "threshold": 0.6,
+        "rank1": 0.9195,
+        "dir": 0.9184,
+        "misid": 0.0777,
+        "fpir": 0.8545
+      }
+    ],
+    "note": "Every extra enrolled face is another chance of a false match, so outsider acceptance grows with the gallery. Matching is therefore scoped to the session's course roster, and the threshold should tighten for large rosters."
+  },
+  "scalability": {
+    "match_latency": [
+      {
+        "gallery_size": 10,
+        "median_ms": 0.127
+      },
+      {
+        "gallery_size": 100,
+        "median_ms": 0.226
+      },
+      {
+        "gallery_size": 1000,
+        "median_ms": 1.863
+      },
+      {
+        "gallery_size": 10000,
+        "median_ms": 20.02
+      },
+      {
+        "gallery_size": 100000,
+        "median_ms": 209.3
+      }
+    ],
+    "note": "Matching is a single vectorised distance computation over the course roster; enrolment needs no retraining, so cost grows linearly with enrolled faces."
+  },
+  "operational": {
+    "enrolled_students": 1,
+    "total_students": 4,
+    "session_checkins": 0,
+    "face_recognised_checkins": 0,
+    "manual_overrides": 0,
+    "manual_override_rate": 0.0,
+    "confidence": {},
+    "attendance_by_status": {
+      "late": 1,
+      "present": 2
+    }
+  },
+  "runtime_seconds": 74.4,
+  "charts": [
+    "distance_histogram.png",
+    "roc.png",
+    "threshold_sweep.png",
+    "match_latency.png",
+    "roster_size_errors.png"
+  ]
+}

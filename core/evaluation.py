@@ -278,6 +278,54 @@ def identification(people_vectors: dict, threshold: float, rng_seed=0):
     return result
 
 
+def identification_by_roster_size(people_vectors: dict, thresholds, sizes=(10, 25, 50, 100, 200, 500, 1000),
+                                  trials=20, max_impostors=500, rng_seed=0):
+    """
+    Open-set identification as the roster (gallery) grows. For each size N,
+    sample N enrolled identities; genuine probes are their other photos,
+    impostor probes are people not on the roster. Averaged over `trials`.
+    Shows why matching is scoped to a course roster rather than the campus.
+    """
+    rng = np.random.default_rng(rng_seed)
+    multi = [pid for pid, v in people_vectors.items() if len(v) >= 2]
+    all_ids = list(people_vectors)
+    rows = []
+    for n in sizes:
+        if n > len(multi):
+            break
+        acc = {t: {'rank1': [], 'dir': [], 'misid': [], 'fpir': []} for t in thresholds}
+        for _ in range(trials):
+            roster = set(rng.choice(multi, n, replace=False).tolist())
+            ids = sorted(roster)
+            G = np.vstack([people_vectors[i][0] for i in ids])
+            probes, truth = [], []
+            for idx, pid in enumerate(ids):
+                for v in people_vectors[pid][1:]:
+                    probes.append(v)
+                    truth.append(idx)
+            outsiders = [pid for pid in all_ids if pid not in roster]
+            pick = rng.choice(len(outsiders), min(max_impostors, len(outsiders)), replace=False)
+            impostors = [people_vectors[outsiders[i]][0] for i in pick]
+
+            def nearest(vs):
+                d = np.linalg.norm(np.vstack(vs)[:, None, :] - G[None, :, :], axis=2)
+                return d.argmin(1), d.min(1)
+
+            gi, gd = nearest(probes)
+            correct = gi == np.array(truth)
+            _, idist = nearest(impostors)
+            for t in thresholds:
+                accepted = gd <= t
+                acc[t]['rank1'].append(correct.mean())
+                acc[t]['dir'].append((correct & accepted).mean())
+                acc[t]['misid'].append((~correct & accepted).mean())
+                acc[t]['fpir'].append((idist <= t).mean())
+        for t in thresholds:
+            rows.append({'roster_size': n, 'threshold': float(t),
+                         **{k: round(float(np.mean(v)), 4) for k, v in acc[t].items()}})
+    return rows
+
+
 def latency_scaling(dim=128, sizes=(10, 100, 1_000, 10_000, 100_000), repeats=50, rng_seed=0):
     """Median time of one face_engine.match() call as the candidate set grows."""
     from core import face_engine
@@ -299,7 +347,7 @@ def latency_scaling(dim=128, sizes=(10, 100, 1_000, 10_000, 100_000), repeats=50
 # --------------------------------------------------------------------------
 # Charts
 # --------------------------------------------------------------------------
-def save_charts(p: Pairs, roc_data, sweep, latency, threshold, out_dir: Path):
+def save_charts(p: Pairs, roc_data, sweep, latency, threshold, out_dir: Path, roster_curve=None):
     try:
         import matplotlib
         matplotlib.use('Agg')
@@ -343,6 +391,19 @@ def save_charts(p: Pairs, roc_data, sweep, latency, threshold, out_dir: Path):
            title='1:N match latency')
     ax.grid(alpha=.3, which='both')
     files.append(_save(fig, out_dir / 'match_latency.png'))
+
+    if roster_curve:
+        fig, ax = plt.subplots(figsize=(6.4, 4))
+        for t, color in zip(sorted({r['threshold'] for r in roster_curve}), (blue, orange, grey)):
+            rows = [r for r in roster_curve if r['threshold'] == t]
+            xs = [r['roster_size'] for r in rows]
+            ax.plot(xs, [r['fpir'] for r in rows], 'o-', color=color, lw=2, label=f'Outsider accepted, t={t:g}')
+            ax.plot(xs, [r['misid'] for r in rows], 's--', color=color, lw=1.2, label=f'Misidentified, t={t:g}')
+        ax.set(xscale='log', xlabel='Roster size (enrolled students compared)', ylabel='Rate',
+               title='Open-set identification error vs roster size', ylim=(0, 1))
+        ax.grid(alpha=.3, which='both')
+        ax.legend(frameon=False, fontsize=8)
+        files.append(_save(fig, out_dir / 'roster_size_errors.png'))
     return files
 
 

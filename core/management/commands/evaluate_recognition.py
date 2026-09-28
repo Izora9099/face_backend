@@ -94,6 +94,8 @@ class Command(BaseCommand):
                 people_vectors[pid] = vecs
         ident = ev.identification(people_vectors, threshold)
         ident_best = ev.identification(people_vectors, best_acc_threshold)
+        roster_curve = ev.identification_by_roster_size(
+            people_vectors, sorted({threshold, secure_threshold}))
 
         self.log('Measuring match latency ...')
         latency = ev.latency_scaling()
@@ -139,7 +141,14 @@ class Command(BaseCommand):
                 'note': ('Set FACE_MATCH_THRESHOLD in .env. Lower = fewer false accepts (impostors) '
                          'but more students needing a manual override.'),
             },
-            'identification': {'at_current_threshold': ident, 'at_balanced_threshold': ident_best},
+            'identification': {
+                'at_current_threshold': ident,
+                'at_balanced_threshold': ident_best,
+                'by_roster_size': roster_curve,
+                'note': ('Every extra enrolled face is another chance of a false match, so outsider '
+                         'acceptance grows with the gallery. Matching is therefore scoped to the '
+                         "session's course roster, and the threshold should tighten for large rosters."),
+            },
             'scalability': {
                 'match_latency': latency,
                 'note': ('Matching is a single vectorised distance computation over the course roster; '
@@ -150,7 +159,7 @@ class Command(BaseCommand):
         }
 
         out.mkdir(parents=True, exist_ok=True)
-        report['charts'] = ev.save_charts(pairs, roc, sweep, latency, threshold, out)
+        report['charts'] = ev.save_charts(pairs, roc, sweep, latency, threshold, out, roster_curve)
         (out / 'recognition_eval.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         (out / 'recognition_eval.md').write_text(_markdown(report), encoding='utf-8')
 
@@ -249,6 +258,15 @@ def _markdown(r):
         ]
         if 'fpir' in ident:
             lines.append(f"| Impostors wrongly accepted (FPIR) | {ident['fpir']:.2%} |")
+        lines.append('')
+    curve = r['identification'].get('by_roster_size') or []
+    if curve:
+        lines += ['### Error vs roster size', '',
+                  f"Averaged over random rosters. {r['identification']['note']}", '',
+                  '| Roster size | Threshold | Rank-1 | Correct + accepted | Misidentified | Outsider accepted |',
+                  '|---|---|---|---|---|---|']
+        lines += [f"| {c['roster_size']} | {c['threshold']:g} | {c['rank1']:.2%} | {c['dir']:.2%} | "
+                  f"{c['misid']:.2%} | {c['fpir']:.2%} |" for c in curve]
         lines.append('')
     lines += ['## Scalability', '', '| Enrolled faces compared | Match time (median) |', '|---|---|']
     lines += [f"| {x['gallery_size']:,} | {x['median_ms']} ms |" for x in r['scalability']['match_latency']]
