@@ -1,252 +1,204 @@
-# Face Backend Project
+# FACE.IT backend
 
-## Overview
+Django 5.2 + Django REST Framework API for a university attendance system that
+verifies students by face. It serves the React admin
+([visages-attend-manager](../visages-attend-manager)) and the Android
+attendance app.
 
-This project is a Django-based backend application designed for student attendance management using facial recognition. It allows for student registration with face data and subsequent attendance marking by comparing live images with registered faces.
+- **Face engine:** dlib ResNet embeddings (the model behind `face_recognition`),
+  128-d vectors, HOG detection, behind [`core/face_engine.py`](core/face_engine.py).
+- **Auth:** JWT (SimpleJWT). Roles: `superadmin`, `staff`, `teacher`.
+- **Docs:** OpenAPI schema at `/api/schema/`, Swagger UI at `/api/docs/`.
+- **Runs on:** Linux, macOS and Windows with Python 3.11/3.12, or anywhere via Docker.
+  No C++ compiler or CMake needed: dlib comes from the prebuilt `dlib-bin` wheel.
 
-## Prerequisites
-
-Before you begin, ensure you have met the following requirements:
-* Python (3.8 or higher recommended)
-* pip (Python package installer)
-* virtualenv (for creating isolated Python environments)
-
-## Setup and Installation
-
-Follow these steps to get your development environment set up:
-
-### 1. Install Python
-
-If you don't have Python installed, download and install it from [python.org](https://www.python.org/downloads/). Ensure that Python and pip are added to your system's PATH.
-
-You can verify your Python installation by running:
-```bash
-python --version
-pip --version
-```
-
-### 2. Create and Activate a Virtual Environment
-
-It's highly recommended to use a virtual environment to manage project dependencies.
-
-**On macOS and Linux:**
-```bash
-# Install virtualenv if you haven't already
-pip install virtualenv
-
-# Navigate to your project directory
-cd path/to/your/face_backend
-
-# Create a virtual environment (e.g., named 'venv')
-python -m venv venv
-# or
-# virtualenv venv
-
-# Activate the virtual environment
-source venv/bin/activate
-```
-
-**On Windows:**
-```bash
-# Install virtualenv if you haven't already
-pip install virtualenv
-
-# Navigate to your project directory
-cd path\to\your\face_backend
-
-# Create a virtual environment (e.g., named 'venv')
-python -m venv venv
-# or
-# virtualenv venv
-
-# Activate the virtual environment
-.\venv\Scripts\activate
-```
-You'll know the virtual environment is active when you see `(venv)` at the beginning of your command prompt.
-
-### 3. Install Dependencies
-
-This project uses Django and other libraries for facial recognition. Install them using pip:
+## Quick start (local Python)
 
 ```bash
-pip install Django face_recognition numpy
-```
-**Note:** The `face_recognition` library depends on `dlib` and `Pillow`. `dlib` might require system-level dependencies (like CMake and a C++ compiler) to be installed first. Please refer to the [dlib installation guide](http://dlib.net/compile.html) and [face_recognition installation guide](https://github.com/ageitgey/face_recognition#installation) for more details, especially if you encounter issues during `pip install face_recognition`.
+python -m venv .venv
+# Windows:  .venv\Scripts\activate      Linux/macOS:  source .venv/bin/activate
+pip install -r requirements-dev.txt
 
-(TODO: It is highly recommended to create a `requirements.txt` file for easier dependency management: `pip freeze > requirements.txt`)
-
-### 4. Apply Migrations
-
-Once Django is installed, apply the database migrations:
-```bash
+cp .env.example .env          # Windows: copy .env.example .env  (then set SECRET_KEY)
 python manage.py migrate
+python manage.py seed_demo    # optional demo data, users admin / staff1 / teacher1 (password FaceIt!2026)
+python manage.py runserver 0.0.0.0:8000
 ```
 
-## Running the Development Server
+Open http://localhost:8000/api/docs/ and authorise with a token from `POST /api/auth/login/`.
+To create your own admin instead of the demo one: `python manage.py createsuperuser`.
 
-To start the Django development server:
+## Quick start (Docker)
+
 ```bash
-python manage.py runserver
+docker compose up --build        # API on :8000, Postgres in a volume, demo data seeded
+docker compose down              # stop (data kept); add -v to wipe it
 ```
-By default, the server will run on `http://127.0.0.1:8000/`. You can access the application by opening this URL in your web browser.
 
-## Project Structure
+Set `SEED_DEMO=0` to skip demo data. Compose reads `SECRET_KEY`, `DEBUG`,
+`ALLOWED_HOSTS` and the CORS/CSRF origins from your `.env`.
 
-The project is organized as follows:
+## Moving between machines / operating systems
 
-*   **`face_backend/`**: This is the main Django project directory.
-    *   [`face_backend/settings.py`](face_backend/settings.py): Contains all the project settings, such as database configuration, installed apps, middleware, static files, etc.
-    *   [`face_backend/urls.py`](face_backend/urls.py): The main URL configuration for the project. It includes URL patterns from other apps.
-    *   [`face_backend/wsgi.py`](face_backend/wsgi.py): Entry-point for WSGI-compatible web servers to serve your project.
-    *   [`face_backend/asgi.py`](face_backend/asgi.py): Entry-point for ASGI-compatible web servers.
-*   **`core/`**: This Django app handles the core functionalities of the application, including student registration, face encoding, and attendance tracking.
-    *   [`core/models.py`](core/models.py): Defines the database models: `Student` (stores student information and face encodings) and `AttendanceRecord` (stores attendance logs).
-    *   [`core/views.py`](core/views.py): Contains the view logic for handling API requests related to student registration and attendance.
-    *   [`core/urls.py`](core/urls.py): URL configurations specific to the `core` app.
-    *   [`core/admin.py`](core/admin.py): Registers models with the Django admin interface.
-    *   [`core/apps.py`](core/apps.py): Configuration for the `core` app.
-    *   [`core/migrations/`](core/migrations/): Directory storing database migration files.
-*   **[`manage.py`](manage.py)**: A command-line utility that lets you interact with this Django project in various ways (e.g., running the development server, creating migrations).
-*   **[`db.sqlite3`](db.sqlite3)**: The default SQLite database file used for development.
-*   **`debug_*.jpg`**: Image files saved for debugging purposes during student registration. These are not part of the core application logic and can be ignored or cleaned up.
+- Everything OS-specific is in `.env` (never committed). Copy `.env` **together
+  with** `db.sqlite3`: face encodings are encrypted with `SECRET_KEY`.
+- If you must change `SECRET_KEY` on an existing database:
+  `python manage.py rotate_encryption_key --old-secret-key '<old key>'`.
+- Line endings are normalised by `.gitattributes`, so a checkout behaves the same on Windows and Linux.
+- Docker gives an identical runtime everywhere (verified: same recognition scores in the Linux container and on Windows).
 
-## Key Components & API Endpoints
+## Environment variables
 
-The `core` app provides the following functionalities and API endpoints. All API endpoints are prefixed with `/api/`.
+| Variable | Default | Purpose |
+|---|---|---|
+| `SECRET_KEY` | none (required unless `DEBUG=True`) | Django signing key; also encrypts stored face encodings |
+| `DEBUG` | `False` | Debug mode |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts (add your LAN IP for phones) |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:8080` | Browser origins allowed to call the API (Vite dev server) |
+| `CSRF_TRUSTED_ORIGINS` | `http://localhost:8080` | Origins trusted for CSRF (admin forms) |
+| `DATABASE_URL` | `sqlite:///db.sqlite3` | Any `dj-database-url` style URL, e.g. `postgres://user:pass@host:5432/db` |
+| `FACE_MATCH_THRESHOLD` | `0.6` | Max face distance for a match; lower = stricter. Calibrate with `evaluate_recognition` |
+| `FACE_DETECTION_MODEL` | `hog` | `hog` (CPU) or `cnn` (more accurate, slow without GPU) |
+| `EMAIL_BACKEND` | console | Django email backend |
 
-### Models
-(Defined in [`core/models.py`](core/models.py))
+## Tests
 
-*   **`Student`**:
-    *   `name`: `CharField` - The name of the student.
-    *   `matric_number`: `CharField` (unique) - The student's matriculation number.
-    *   `face_encoding`: `BinaryField` - Stores the binary representation of the student's facial encoding.
-    *   `registered_on`: `DateTimeField` - Timestamp of when the student was registered.
-*   **`AttendanceRecord`**:
-    *   `student`: `ForeignKey` to `Student` - The student for whom attendance is recorded.
-    *   `timestamp`: `DateTimeField` - Timestamp of when the attendance was recorded.
-    *   `status`: `CharField` - Status of the attendance (e.g., "Present").
-
-### API Endpoints / Views
-(Logic defined in [`core/views.py`](core/views.py), URLs in [`core/urls.py`](core/urls.py) and [`face_backend/urls.py`](face_backend/urls.py))
-
-*   **`POST /api/register/`**
-    *   **View:** [`register_student`](core/views.py:12)
-    *   **Description:** Registers a new student. Expects `name`, `matric_number`, and an `image` file in the POST request. The image is processed to extract facial encodings.
-    *   **Request Body (form-data):**
-        *   `name` (string): Student's name.
-        *   `matric_number` (string): Student's matriculation number.
-        *   `image` (file): Image file containing the student's face.
-    *   **Responses:**
-        *   `200 OK`: Student registered successfully.
-        *   `400 Bad Request`: Missing fields or no face found in the image.
-        *   `405 Method Not Allowed`: If not a POST request.
-        *   `409 Conflict`: Student with the given matric number already exists.
-        *   `500 Internal Server Error`: Server-side error during processing.
-
-*   **`POST /api/attendance/`**
-    *   **View:** [`take_attendance`](core/views.py:72)
-    *   **Description:** Marks attendance for a student. Expects an `image` file in the POST request. The face in the image is compared against registered students.
-    *   **Request Body (form-data):**
-        *   `image` (file): Image file containing a face for attendance.
-    *   **Responses:**
-        *   `200 OK`: Attendance recorded successfully for a recognized student.
-        *   `400 Bad Request`: No image provided.
-        *   `404 Not Found`: No face found in the image, or face not recognized among registered students.
-        *   `500 Internal Server Error`: Server-side error during processing.
-
-*   **`POST /api/post/`**
-    *   **View:** [`post_student_data`](core/views.py:101)
-    *   **Description:** Saves basic student information (`name`, `matric_number`) without an initial face scan. The `face_encoding` field is left empty. This might be used for a two-step registration process.
-    *   **Request Body (form-data):**
-        *   `name` (string): Student's name.
-        *   `matric_number` (string): Student's matriculation number.
-    *   **Responses:**
-        *   `200 OK`: Student info saved.
-        *   `400 Bad Request`: Missing fields or student already exists.
-
-*   **`GET /api/notify/`**
-    *   **View:** [`notify`](core/views.py:120)
-    *   **Description:** A simple notification endpoint. Returns a JSON message. Can accept an optional `message` query parameter.
-    *   **Query Parameters:**
-        *   `message` (string, optional): Custom message to be echoed.
-    *   **Responses:**
-        *   `200 OK`: Returns a JSON object with `status: 'info'` and the message.
-
-### URLs
-*   Project-level URLs are defined in [`face_backend/urls.py`](face_backend/urls.py), which includes `core.urls` under the `/api/` prefix.
-*   App-level URLs for the `core` app are in [`core/urls.py`](core/urls.py).
-
-## Creating a Superuser (Admin User)
-
-To access the Django admin interface, you'll need to create a superuser:
 ```bash
-python manage.py createsuperuser
+pytest            # 27 tests: auth, CRUD, roles, face engine, full session flow
 ```
-Follow the prompts to set a username, email, and password.
 
-Once created, you can access the admin panel at `http://127.0.0.1:8000/admin/`. Through the admin interface, you can:
-*   Manage **Students**: View, add, edit, and delete student records. The list view displays student names, matriculation numbers, and registration dates.
-*   Manage **Attendance Records**: View, add, edit, and delete attendance records. The list view displays the associated student, timestamp, and attendance status.
+The session tests enrol real faces (public-domain portraits in `core/tests/fixtures/`),
+start a session, check in by photo, apply a manual override and end the session.
 
-## Running Tests
+## Recognition research: benchmark and threshold calibration
 
-To run the automated tests for the project (if any are defined in [`core/tests.py`](core/tests.py)):
 ```bash
-python manage.py test
+python manage.py evaluate_recognition            # LFW benchmark (downloads ~180 MB once to datasets/)
+python manage.py evaluate_recognition --quick    # 2 of 10 folds
+python manage.py evaluate_recognition --dataset path/to/photos   # your own <person>/<image>.jpg set
 ```
 
-## Deployment to Production
+It writes `reports/recognition_eval.md`, `.json` and charts (ROC, distance histograms,
+threshold sweep, match latency). The admin UI reads it from `GET /api/recognition/report/`.
+Reported: verification accuracy (LFW 10-fold protocol), ROC AUC, EER, FAR/FRR at the
+current threshold, recommended balanced and secure (FAR ≤ 0.1%) thresholds, 1:N
+identification (rank-1, false rejects, impostor acceptance), match latency from 10 to
+100,000 enrolled faces, and operational statistics from your own attendance data
+(manual-override rate, confidence distribution).
 
-Deploying a Django application to production involves several steps and considerations beyond the scope of the development server (`runserver`). Here's a general outline:
+Why no model training: the embedding network is pretrained on ~3M faces. Enrolling a
+student stores one embedding; recognition is a nearest-neighbour search over the course
+roster. Nothing needs retraining when students join, which is what lets the system scale.
 
-1.  **Choose a Web Server:** Use a production-grade web server like Gunicorn or uWSGI.
-2.  **WSGI/ASGI:** Configure your web server to communicate with your Django application via WSGI (e.g., using [`face_backend/wsgi.py`](face_backend/wsgi.py)) or ASGI.
-3.  **Static Files:** Configure serving of static files (CSS, JavaScript, images). Run `python manage.py collectstatic` to gather all static files into a single directory.
-4.  **Database:** Use a robust production database (e.g., PostgreSQL, MySQL) instead of SQLite. Update [`face_backend/settings.py`](face_backend/settings.py) accordingly.
-5.  **Security:**
-    *   Set `DEBUG = False` in [`face_backend/settings.py`](face_backend/settings.py).
-    *   Configure `ALLOWED_HOSTS` in [`face_backend/settings.py`](face_backend/settings.py).
-    *   Set a strong `SECRET_KEY` and keep it confidential.
-    *   Use HTTPS.
-6.  **Environment Variables:** Store sensitive information (like `SECRET_KEY`, database credentials) in environment variables, not in the codebase.
-7.  **Process Manager:** Use a process manager like Supervisor or systemd to manage your application server.
+## Management commands
 
-Example with Gunicorn:
-```bash
-# Install Gunicorn
-pip install gunicorn
+| Command | Purpose |
+|---|---|
+| `seed_demo [--password]` | Idempotent demo data (departments, courses, users, students, timetable) |
+| `evaluate_recognition` | Benchmark + threshold calibration report |
+| `rotate_encryption_key --old-secret-key` | Re-encrypt face encodings after changing `SECRET_KEY` |
 
-# Run Gunicorn (replace 'face_backend.wsgi' if your project name is different)
-gunicorn face_backend.wsgi:application --bind 0.0.0.0:8000
+## Roles
+
+| Role | Can do |
+|---|---|
+| `superadmin` | Everything, including admin users, system and security settings, backups |
+| `staff` | Manage departments, levels, courses, students, enrolment, timetable; read reports and audit logs |
+| `teacher` | Read academics; see students, attendance and sessions only for courses they teach; run sessions and mark attendance for those courses |
+
+## API
+
+All routes are under `/api/`. Authenticate with `Authorization: Bearer <access>`.
+Lists of students and attendance are paginated (`?page=`, `?page_size=` up to 500)
+and return `{count, next, previous, results}`; other lists return plain arrays.
+Attendance status is one of `present`, `late`, `absent`, `excused`.
+
+### Auth
+| Method | Path | Notes |
+|---|---|---|
+| POST | `auth/login/` | `{username, password}` → `{access, refresh, user}` |
+| POST | `auth/refresh/` | `{refresh}` → `{access, refresh}` |
+| GET | `auth/user/` | Current user with `role` and `permissions` |
+
+### Academics (router CRUD: GET list, POST, GET/PUT/PATCH/DELETE `<id>/`)
+| Path | Extras |
+|---|---|
+| `departments/` | `?active_only=true`; `GET departments/<id>/stats/` |
+| `specializations/` | `?department=` |
+| `levels/` | `?active_only=true` |
+| `courses/` | `?department= &level= &specialization= &search=`; `GET courses/<id>/students/`, `GET courses/<id>/attendance/`, `POST courses/<id>/enroll-students/` `{student_ids}` |
+
+### Students
+| Method | Path | Notes |
+|---|---|---|
+| GET/POST | `students/` | Paginated; `?department= &level= &specialization= &course= &status= &search=` |
+| GET/PUT/PATCH/DELETE | `students/<id>/` | Never includes the face encoding; `face_enrolled` flag instead |
+| POST | `students/<id>/enroll-face/` | multipart `image`; rejects no face, several faces, or a face already enrolled (409) |
+| GET | `students/<id>/courses/` | |
+| POST | `students/<id>/enroll-courses/` | `{course_ids}` |
+| POST | `students/<id>/auto-assign-courses/` | By department/level/specialization |
+| GET | `students/<id>/attendance-summary/` | Counts per status and per course |
+| POST | `enrollment/student/` | `{student_id, course_ids}` |
+| POST | `enrollment/bulk/` | `{course_ids, department_id?, specialization_id?, level_id?}` |
+
+### Attendance
+| Method | Path | Notes |
+|---|---|---|
+| GET/POST | `attendance/` | Paginated; `?course_id= &student_id= &status= &date= &date_from= &date_to=`; POST `{student, course, status, notes}` |
+| GET/PUT/PATCH/DELETE | `attendance/<id>/` | Corrections |
+
+### Sessions (Android contract: keep these paths and keys)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `sessions/start/` | `{course_id, duration_minutes?, grace_period_minutes?, room?}` → `{success, message, session_id, session}` |
+| POST | `attendance/checkin/` | **No auth** (kiosk). multipart `session_id`, `image` → `{success, message, student_id, student_name, matric_number, status, check_in_time, confidence, distance, threshold}` |
+| GET | `sessions/<session_id>/stats/` | `{success, stats}` |
+| POST | `sessions/end/` | `{session_id}`; students who did not check in are marked absent |
+| POST | `sessions/<session_id>/mark/` | Manual override `{student_id, status, notes?}` |
+| GET | `sessions/` | `?status= &course=` |
+
+These four Android routes are also served without the `/api/` prefix for older builds.
+
+### Recognition
+| Method | Path | Notes |
+|---|---|---|
+| POST | `register-student/` | Create student + enrol face in one call (multipart) |
+| POST | `recognize-face/` | multipart `course_id`, `image`; marks today's attendance; returns `confidence`, `distance`, `threshold` |
+| GET | `recognition/report/` | Latest benchmark report |
+
+### Dashboard and analytics
+`GET dashboard/stats/`, `analytics/departments/`, `analytics/courses/`, `analytics/teachers/` (teachers see their own courses only).
+
+### Timetable
+`timetable/entries/` (GET, POST), `timetable/entries/<id>/` (GET, PUT, PATCH, DELETE), `timetable/timeslots/`, `timetable/rooms/` (GET, POST), `timetable/teachers/`, `timetable/courses/` (GET).
+
+### Administration (superadmin; staff can read)
+| Path | Notes |
+|---|---|
+| `admin-users/` (GET), `admin-users/create/` (POST), `admin-users/<id>/` (PUT, PATCH, DELETE = deactivate), `admin-users/<id>/delete/` | |
+| `security/activities/`, `security/login-attempts/`, `security/active-sessions/`, `security/statistics/` | `?days=` |
+| `security/settings/`, `security/settings/update/`, `security/sessions/<key>/terminate/` | |
+| `system/stats/`, `system/settings/`, `system/settings/update/`, `system/test-email/`, `system/backup/create/`, `system/backups/` | Backups are JSON dumps in `backups/` |
+
+Legacy flat lists `get-students/` and `get-attendance/` remain for old clients.
+
+## Biometric data
+
+Uploaded photos are processed in memory and discarded. Only the 128-d encoding is
+stored, encrypted at rest (`django-cryptography`). Encodings are never returned by the
+API and never logged. No endpoint serves enrolment photos.
+
+## Project layout
+
 ```
-
-(TODO: Add more specific deployment instructions if a particular platform or setup is intended, e.g., Docker, Heroku, AWS).
-
-## Generating `requirements.txt`
-
-It is good practice to have a `requirements.txt` file to list all project dependencies. You can generate it after installing all necessary packages in your virtual environment:
-```bash
-pip freeze > requirements.txt
+core/
+  face_engine.py      single recognition engine (encode / match)
+  evaluation.py       benchmark metrics used by evaluate_recognition
+  permissions.py      role checks
+  views/              auth, academics, students, attendance, sessions,
+                      recognition, timetable, security, system
+  management/commands seed_demo, evaluate_recognition, rotate_encryption_key
+  tests/              pytest suite + fixture photos
+face_backend/         settings (env-driven) and root URLs
+scripts/              older data-population scripts
 ```
-Then, others (or your future self) can install all dependencies with:
-```bash
-pip install -r requirements.txt
-```
-This replaces the need to `pip install Django face_recognition numpy` individually. Remember to update this file if you add more dependencies.
-
-## Contributing
-
-If you'd like to contribute to this project, please follow these general guidelines:
-1. Fork the repository.
-2. Create a new feature branch (`git checkout -b feature/your-feature-name`).
-3. Make your changes and commit them with clear messages.
-4. Ensure your code adheres to any existing style guidelines.
-5. If adding new features, include or update tests.
-6. Push your branch to your fork (`git push origin feature/your-feature-name`).
-7. Create a Pull Request against the main repository's `main` or `master` branch.
-
-## License
-
-(TODO: Specify the license for this project. If unsure, MIT is a common and permissive choice for open-source projects.)
-Example: This project is licensed under the MIT License - see the LICENSE.md file for details (if you create one).
