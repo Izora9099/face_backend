@@ -1,0 +1,22 @@
+# FACE.IT backend - Python 3.11 / 3.12, Linux, macOS and Windows.
+# dlib comes from the prebuilt `dlib-bin` wheel: no CMake or C++ compiler needed.
+
+Django==5.2.17
+djangorestframework==3.18.1
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.9.0
+django-environ==0.14.0
+drf-spectacular==0.30.0
+# Django 5 compatible fork of django-cryptography (same import path, same data format)
+django-cryptography-django5==2.2
+
+# Face recognition engine (dlib ResNet 128-d embeddings)
+dlib-bin==20.0.1
+face_recognition_models==0.3.0
+# face_recognition_models imports pkg_resources, removed in setuptools 81
+setuptools>=70,<81
+numpy==2.5.3
+pillow==12.3.0
+
+psutil==7.2.2
+gunicorn==23.0.0; sys_platform != "win32"
