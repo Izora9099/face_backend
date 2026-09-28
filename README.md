@@ -38,6 +38,22 @@ docker compose down              # stop (data kept); add -v to wipe it
 Set `SEED_DEMO=0` to skip demo data. Compose reads `SECRET_KEY`, `DEBUG`,
 `ALLOWED_HOSTS` and the CORS/CSRF origins from your `.env`.
 
+## Running with the admin frontend
+
+```bash
+# terminal 1 (this repo)
+python manage.py runserver 0.0.0.0:8000
+# terminal 2 (../visages-attend-manager)
+cp .env.example .env          # VITE_API_URL=http://localhost:8000/api
+npm install && npm run dev    # http://localhost:8080
+```
+
+Sign in with a demo user (`admin`, `staff1`, `teacher1`; password `FaceIt!2026`
+after `seed_demo`). Face check-in lives under **Recognition**: choose a course,
+start the session, and allow camera access. Browsers only grant the camera on
+`localhost` or HTTPS, so use a tunnel or certificate when the UI is opened from
+another device.
+
 ## Moving between machines / operating systems
 
 - Everything OS-specific is in `.env` (never committed). Copy `.env` **together
