@@ -1,12 +1,15 @@
 from django.contrib import admin
-from django.urls import path, include
-from django.views.decorators.csrf import csrf_exempt
-from core.views import get_students
+from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from core.urls import ANDROID_ROUTES
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Include core API endpoints (CSRF exemption will be handled in settings or individual views)
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/', include('core.urls')),
-    path('students/', csrf_exempt(get_students), name='get_students'),
-    path('', include('core.urls')),
+    # Backward compatibility: older Android builds call the session routes
+    # without the /api/ prefix.
+    path('', include((ANDROID_ROUTES, 'android'), namespace='android')),
 ]
